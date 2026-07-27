@@ -127,9 +127,12 @@
                 {% else %}
                 <tr><td colspan="8" class="px-4 py-6 text-center text-neutral-500">
                     {% if filters.date_from or filters.date_to or filters.category or filters.transaction_type or filters.direction or filters.search %}
-                    {% include "partials/empty_state_no_match.html" with clear_url="/transactions" %}
+                    {% set clear_url = "/transactions" %}
+                    {% include "partials/empty_state_no_match.html" %}
                     {% else %}
-                    {% include "partials/empty_state_first_run.html" with title="No transactions yet" message="Run your first ingestion to get started." %}
+                    {% set title = "No transactions yet" %}
+                    {% set message = "Run your first ingestion to get started." %}
+                    {% include "partials/empty_state_first_run.html" %}
                     {% endif %}
                 </td></tr>
                 {% endfor %}

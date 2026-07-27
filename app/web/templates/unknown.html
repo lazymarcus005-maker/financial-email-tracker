@@ -39,9 +39,12 @@
             <tr id="unknown-empty-row">
                 <td colspan="8" class="px-4 py-6 text-center text-neutral-500">
                     {% if filters.status %}
-                    {% include "partials/empty_state_no_match.html" with clear_url="/unknown" %}
+                    {% set clear_url = "/unknown" %}
+                    {% include "partials/empty_state_no_match.html" %}
                     {% else %}
-                    {% include "partials/empty_state_first_run.html" with title="No unknown emails" message="All emails have been processed successfully." %}
+                    {% set title = "No unknown emails" %}
+                    {% set message = "All emails have been processed successfully." %}
+                    {% include "partials/empty_state_first_run.html" %}
                     {% endif %}
                 </td>
             </tr>

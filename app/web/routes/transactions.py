@@ -66,7 +66,6 @@ async def get_transaction(transaction_id: int, db: aiosqlite.Connection = Depend
 @router.patch("/transactions/{transaction_id}")
 async def update_transaction(
     transaction_id: int,
-    body: TransactionUpdate,
     request: Request,
     db: aiosqlite.Connection = Depends(get_db),
 ):
@@ -74,13 +73,22 @@ async def update_transaction(
     if transaction is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
-    if body.category is not None:
-        await queries.update_transaction_category(db, transaction_id, body.category, category_source="manual")
-        await history.record(db, transaction["counterparty"], body.category, source="manual")
-        await db.commit()
+    # Accept both JSON and form-encoded data (for HTMX inline editing)
+    ct = request.headers.get("content-type", "")
+    if "application/x-www-form-urlencoded" in ct:
+        form = await request.form()
+        category = form.get("category")
+    else:
+        body = await request.json()
+        category = body.get("category")
+        ignore = body.get("ignore")
+        if ignore is not None:
+            await queries.set_transaction_ignored(db, transaction_id, ignore)
 
-    if body.ignore is not None:
-        await queries.set_transaction_ignored(db, transaction_id, body.ignore)
+    if category is not None:
+        await queries.update_transaction_category(db, transaction_id, category, category_source="manual")
+        await history.record(db, transaction["counterparty"], category, source="manual")
+        await db.commit()
 
     t = await queries.get_transaction(db, transaction_id)
     # HTMX: return HTML partial

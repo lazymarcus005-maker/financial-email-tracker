@@ -1,10 +1,10 @@
 <form
+    class="inline-flex items-center gap-1"
     hx-patch="/api/transactions/{{ t.id }}"
     hx-target="closest td"
     hx-swap="innerHTML"
-    hx-encoding="application/json"
-    class="inline-flex items-center gap-1"
-    onsubmit="event.preventDefault(); fetch(this.action, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({category: this.querySelector('input[name=category]').value})}).then(r => { if(r.ok) htmx.trigger(this, 'htmx:afterSettle'); else alert('Failed') });"
+    hx-trigger="submit"
+    onsubmit="const val = this.querySelector('input[name=category]').value; this.setAttribute('hx-vals', JSON.stringify({category: val}));"
 >
     <input
         type="text"
