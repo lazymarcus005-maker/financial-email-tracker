@@ -30,25 +30,37 @@ async def list_mappings(db: aiosqlite.Connection = Depends(get_db)):
 
 
 @router.post("/mappings", status_code=201)
-async def create_mapping(body: MappingCreate, db: aiosqlite.Connection = Depends(get_db)):
-    return await queries.create_mapping(db, body.counterparty, body.category, source="manual")
+async def create_mapping(body: MappingCreate, request: Request, db: aiosqlite.Connection = Depends(get_db)):
+    item = await queries.create_mapping(db, body.counterparty, body.category, source="manual")
+    # HTMX: return new row partial
+    if request.headers.get("HX-Request") == "true":
+        return templates.TemplateResponse(request, "partials/mapping_row.html", {"item": item})
+    return item
 
 
 @router.patch("/mappings/{mapping_id}")
-async def update_mapping(mapping_id: int, body: MappingUpdate, db: aiosqlite.Connection = Depends(get_db)):
+async def update_mapping(mapping_id: int, body: MappingUpdate, request: Request, db: aiosqlite.Connection = Depends(get_db)):
     existing = await queries.get_mapping(db, mapping_id)
     if existing is None:
         raise HTTPException(status_code=404, detail="Mapping not found")
     await queries.update_mapping(db, mapping_id, body.category)
-    return await queries.get_mapping(db, mapping_id)
+    item = await queries.get_mapping(db, mapping_id)
+    # HTMX: return updated row partial
+    if request.headers.get("HX-Request") == "true":
+        return templates.TemplateResponse(request, "partials/mapping_row.html", {"item": item})
+    return item
 
 
 @router.delete("/mappings/{mapping_id}", status_code=204)
-async def delete_mapping(mapping_id: int, db: aiosqlite.Connection = Depends(get_db)):
+async def delete_mapping(mapping_id: int, request: Request, db: aiosqlite.Connection = Depends(get_db)):
     existing = await queries.get_mapping(db, mapping_id)
     if existing is None:
         raise HTTPException(status_code=404, detail="Mapping not found")
     await queries.delete_mapping(db, mapping_id)
+    # HTMX: return empty to remove row
+    if request.headers.get("HX-Request") == "true":
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse("")
     return None
 
 

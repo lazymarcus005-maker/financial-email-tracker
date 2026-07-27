@@ -4,11 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Financial Email Tracker{% endblock %}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet" href="/static/tailwind.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Sarabun:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/app.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, "Noto Sans Thai", "Sarabun", sans-serif; }
+        .font-thai { font-family: "Noto Sans Thai", "Sarabun", sans-serif; }
     </style>
 </head>
 <body class="bg-neutral-50 text-neutral-900 min-h-screen">
@@ -18,16 +22,18 @@
                 <div class="flex items-center gap-6">
                     <span class="font-semibold text-neutral-900">Financial Email Tracker</span>
                     <div class="flex items-center gap-1">
-                        <a href="/" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100">Dashboard</a>
-                        <a href="/transactions" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100">Transactions</a>
-                        <a href="/unknown" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100">Unknown</a>
-                        <a href="/mappings" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100">Mappings</a>
-                        <a href="/settings" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100">Settings</a>
+                        <a href="/" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Dashboard</a>
+                        <a href="/transactions" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path.startswith('/transactions') %}aria-current="page"{% endif %}>Transactions</a>
+                        <a href="/unknown" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path.startswith('/unknown') %}aria-current="page"{% endif %}>Unknown</a>
+                        <a href="/mappings" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path.startswith('/mappings') %}aria-current="page"{% endif %}>Mappings</a>
+                        <a href="/settings" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path.startswith('/settings') %}aria-current="page"{% endif %}>Settings</a>
                     </div>
                 </div>
             </div>
         </div>
     </nav>
+
+    <div id="toast-container" aria-live="polite" class="fixed top-4 right-4 z-50 flex flex-col gap-2"></div>
 
     <main class="max-w-6xl mx-auto px-4 py-8">
         {% block content %}{% endblock %}

@@ -10,13 +10,21 @@
     <div class="flex flex-wrap items-end gap-3">
         <div>
             <label class="block text-xs text-neutral-500 mb-1">Counterparty</label>
-            <input type="text" id="new-counterparty" class="input">
+            <input type="text" id="new-counterparty" class="input focus-visible:ring-2 focus-visible:ring-neutral-400">
         </div>
         <div>
             <label class="block text-xs text-neutral-500 mb-1">Category</label>
-            <input type="text" id="new-category" class="input">
+            <input type="text" id="new-category" class="input focus-visible:ring-2 focus-visible:ring-neutral-400" list="categories">
         </div>
-        <button class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700" onclick="addMapping()">Add Mapping</button>
+        <button
+            class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2"
+            hx-post="/api/mappings"
+            hx-target="#mappings-tbody"
+            hx-swap="beforeend"
+            hx-vals='js:{counterparty: document.getElementById("new-counterparty").value, category: document.getElementById("new-category").value}'
+            hx-disabled-elt="this"
+            hx-on::after-request="document.getElementById('new-counterparty').value=''; document.getElementById('new-category').value=''"
+        >Add Mapping</button>
     </div>
 </div>
 
@@ -31,39 +39,30 @@
                 <th class="px-4 py-3 font-medium">Actions</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="mappings-tbody">
             {% for item in items %}
-            <tr class="border-b border-neutral-100">
-                <td class="px-4 py-3">{{ item.counterparty }}</td>
-                <td class="px-4 py-3">
-                    <input type="text" id="category-{{ item.id }}" value="{{ item.category }}" class="input">
-                </td>
-                <td class="px-4 py-3">{{ item.source or '-' }}</td>
-                <td class="px-4 py-3 whitespace-nowrap">{{ item.created_at }}</td>
-                <td class="px-4 py-3 whitespace-nowrap">
-                    <button class="px-2 py-1 rounded-md border border-neutral-300 text-xs hover:bg-neutral-100" onclick="saveMapping({{ item.id }})">Save</button>
-                    <button class="px-2 py-1 rounded-md border border-red-300 text-red-600 text-xs hover:bg-red-50" onclick="deleteMapping({{ item.id }})">Delete</button>
+            {% include "partials/mapping_row.html" %}
+            {% else %}
+            <tr id="mappings-empty-row">
+                <td colspan="5" class="px-4 py-6 text-center text-neutral-500">
+                    {% if request.query_params %}
+                    {% set clear_url = "/mappings" %}
+                    {% include "partials/empty_state_no_match.html" %}
+                    {% else %}
+                    {% set title = "No mappings yet" %}
+                    {% set message = "Add your first counterparty-to-category mapping above." %}
+                    {% include "partials/empty_state_first_run.html" %}
+                    {% endif %}
                 </td>
             </tr>
-            {% else %}
-            <tr><td colspan="5" class="px-4 py-6 text-center text-neutral-500">No mappings yet.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 
-<script>
-    function addMapping() {
-        const counterparty = document.getElementById('new-counterparty').value;
-        const category = document.getElementById('new-category').value;
-        apiCall('/api/mappings', 'POST', { counterparty: counterparty, category: category }).then(() => location.reload());
-    }
-    function saveMapping(id) {
-        const category = document.getElementById('category-' + id).value;
-        apiCall('/api/mappings/' + id, 'PATCH', { category: category }).then(() => location.reload());
-    }
-    function deleteMapping(id) {
-        apiCall('/api/mappings/' + id, 'DELETE').then(() => location.reload());
-    }
-</script>
+<datalist id="categories">
+    {% for item in items %}
+    <option value="{{ item.category }}">
+    {% endfor %}
+</datalist>
 {% endblock %}

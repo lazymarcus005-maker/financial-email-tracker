@@ -1,0 +1,39 @@
+<tr id="unknown-row-{{ item.id }}" class="border-b border-neutral-100">
+    <td class="px-4 py-3 whitespace-nowrap">{{ item.created_at }}</td>
+    <td class="px-4 py-3">{{ item.subject or '-' }}</td>
+    <td class="px-4 py-3">{{ item.sender or '-' }}</td>
+    <td class="px-4 py-3">{{ item.transaction_code or '-' }}</td>
+    <td class="px-4 py-3 text-right">{% if item.amount is not none %}฿{{ '{:,.2f}'.format(item.amount) }}{% else %}-{% endif %}</td>
+    <td class="px-4 py-3"><span class="badge {% if item.status == 'pending' %}badge-warning{% else %}badge-neutral{% endif %}">{{ item.status }}</span></td>
+    <td class="px-4 py-3 text-xs text-neutral-500">
+        {% if item.warnings %}
+            {{ item.warnings|length }} warning(s): {{ item.warnings|join(', ') }}
+        {% else %}
+            -
+        {% endif %}
+    </td>
+    <td class="px-4 py-3 whitespace-nowrap">
+        <button
+            class="px-2 py-1 rounded-md border border-neutral-300 text-xs hover:bg-neutral-100"
+            hx-post="/api/unknown/{{ item.id }}/ignore"
+            hx-target="#unknown-row-{{ item.id }}"
+            hx-swap="outerHTML"
+            hx-disabled-elt="this"
+        >Ignore</button>
+        <button
+            class="px-2 py-1 rounded-md border border-neutral-300 text-xs hover:bg-neutral-100"
+            hx-post="/api/unknown/{{ item.id }}/reparse"
+            hx-target="#unknown-row-{{ item.id }}"
+            hx-swap="outerHTML"
+            hx-disabled-elt="this"
+        >Reparse</button>
+        <button
+            class="px-2 py-1 rounded-md border border-red-300 text-xs text-red-700 hover:bg-red-50"
+            hx-delete="/api/unknown/{{ item.id }}"
+            hx-target="#unknown-row-{{ item.id }}"
+            hx-swap="outerHTML"
+            hx-confirm="Delete this unknown email record?"
+            hx-disabled-elt="this"
+        >Delete</button>
+    </td>
+</tr>

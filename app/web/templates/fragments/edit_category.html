@@ -1,0 +1,32 @@
+<form
+    class="inline-flex items-center gap-1"
+    hx-patch="/api/transactions/{{ t.id }}"
+    hx-target="closest td"
+    hx-swap="innerHTML"
+    hx-trigger="submit"
+    onsubmit="const val = this.querySelector('input[name=category]').value; this.setAttribute('hx-vals', JSON.stringify({category: val}));"
+>
+    <input
+        type="text"
+        name="category"
+        value="{{ t.category or '' }}"
+        class="input text-xs py-0.5 px-1.5 w-32 focus-visible:ring-2 focus-visible:ring-neutral-400"
+        list="categories-{{ t.id }}"
+        autofocus
+    >
+    <button type="submit" class="px-1.5 py-0.5 rounded bg-neutral-900 text-white text-xs hover:bg-neutral-700 transition-colors duration-150">Save</button>
+    <button
+        type="button"
+        class="px-1.5 py-0.5 rounded border border-neutral-300 text-xs hover:bg-neutral-100 transition-colors duration-150"
+        hx-get="/transactions"
+        hx-target="#transactions-table"
+        hx-select="#transactions-table"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+    >Cancel</button>
+    <datalist id="categories-{{ t.id }}">
+        {% for cat in categories %}
+        <option value="{{ cat }}">
+        {% endfor %}
+    </datalist>
+</form>

@@ -36,6 +36,8 @@ async def list_transactions(
     transaction_type: str | None = None,
     direction: str | None = None,
     search: str | None = None,
+    sort: str | None = None,
+    dir: str | None = None,
 ):
     items, total = await queries.list_transactions(
         db,
@@ -47,6 +49,8 @@ async def list_transactions(
         transaction_type=transaction_type,
         direction=direction,
         search=search,
+        sort=sort,
+        sort_dir=dir,
     )
     return {"items": items, "total": total, "page": page, "page_size": page_size}
 
@@ -62,39 +66,58 @@ async def get_transaction(transaction_id: int, db: aiosqlite.Connection = Depend
 @router.patch("/transactions/{transaction_id}")
 async def update_transaction(
     transaction_id: int,
-    body: TransactionUpdate,
+    request: Request,
     db: aiosqlite.Connection = Depends(get_db),
 ):
     transaction = await queries.get_transaction(db, transaction_id)
     if transaction is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
-    if body.category is not None:
-        await queries.update_transaction_category(db, transaction_id, body.category, category_source="manual")
-        await history.record(db, transaction["counterparty"], body.category, source="manual")
+    # Accept both JSON and form-encoded data (for HTMX inline editing)
+    ct = request.headers.get("content-type", "")
+    if "application/x-www-form-urlencoded" in ct:
+        form = await request.form()
+        category = form.get("category")
+    else:
+        body = await request.json()
+        category = body.get("category")
+        ignore = body.get("ignore")
+        if ignore is not None:
+            await queries.set_transaction_ignored(db, transaction_id, ignore)
+
+    if category is not None:
+        await queries.update_transaction_category(db, transaction_id, category, category_source="manual")
+        await history.record(db, transaction["counterparty"], category, source="manual")
         await db.commit()
 
-    if body.ignore is not None:
-        await queries.set_transaction_ignored(db, transaction_id, body.ignore)
-
-    return await queries.get_transaction(db, transaction_id)
+    t = await queries.get_transaction(db, transaction_id)
+    # HTMX: return HTML partial
+    if request.headers.get("HX-Request") == "true":
+        return templates.TemplateResponse(request, "partials/category_badge.html", {"t": t})
+    return t
 
 
 @router.delete("/transactions/{transaction_id}", status_code=204)
 async def delete_transaction(
     transaction_id: int,
+    request: Request,
     db: aiosqlite.Connection = Depends(get_db),
 ):
     transaction = await queries.get_transaction(db, transaction_id)
     if transaction is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
     await queries.delete_transaction(db, transaction_id)
+    # HTMX: redirect to transactions list
+    if request.headers.get("HX-Request") == "true":
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse('<script>window.location.href="/transactions"</script>')
     return None
 
 
 @router.post("/reparse/{transaction_id}")
 async def reparse(
     transaction_id: int,
+    request: Request,
     db: aiosqlite.Connection = Depends(get_db),
     gmail_client: GmailClient = Depends(get_gmail_client),
     registry: ParserRegistry = Depends(get_parser_registry),
@@ -103,6 +126,10 @@ async def reparse(
     result = await reparse_transaction(db, transaction_id, gmail_client=gmail_client, registry=registry, engine=engine)
     if result["status"] == "not_found":
         raise HTTPException(status_code=404, detail="Transaction not found")
+    # HTMX: return updated actions partial
+    if request.headers.get("HX-Request") == "true":
+        t = await queries.get_transaction(db, transaction_id)
+        return templates.TemplateResponse(request, "partials/transaction_actions.html", {"t": t})
     return result
 
 
@@ -118,6 +145,8 @@ async def transactions_page(
     transaction_type: str | None = None,
     direction: str | None = None,
     search: str | None = None,
+    sort: str | None = None,
+    dir: str | None = None,
 ):
     items, total = await queries.list_transactions(
         db,
@@ -129,8 +158,12 @@ async def transactions_page(
         transaction_type=transaction_type,
         direction=direction,
         search=search,
+        sort=sort,
+        sort_dir=dir,
     )
     total_pages = max(1, -(-total // page_size))
+    categories = await queries.list_categories(db)
+    types = await queries.list_transaction_types(db)
     return templates.TemplateResponse(
         request,
         "transactions.html",
@@ -148,6 +181,10 @@ async def transactions_page(
                 "direction": direction or "",
                 "search": search or "",
             },
+            "sort": sort or "",
+            "sort_dir": dir or "",
+            "categories": categories,
+            "types": types,
         },
     )
 
@@ -157,4 +194,19 @@ async def transaction_detail_page(request: Request, transaction_id: int, db: aio
     transaction = await queries.get_transaction(db, transaction_id)
     if transaction is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    return templates.TemplateResponse(request, "transaction_detail.html", {"t": transaction})
+    categories = await queries.list_categories(db)
+    return templates.TemplateResponse(request, "transaction_detail.html", {"t": transaction, "categories": categories})
+
+
+@page_router.get("/transactions/{transaction_id}/edit-category")
+async def edit_category_fragment(transaction_id: int, db: aiosqlite.Connection = Depends(get_db)):
+    """HTMX fragment: inline category editor with datalist."""
+    transaction = await queries.get_transaction(db, transaction_id)
+    if transaction is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    categories = await queries.list_categories(db)
+    return templates.TemplateResponse(
+        Request(scope={"type": "http", "method": "GET", "headers": {}}),
+        "fragments/edit_category.html",
+        {"t": transaction, "categories": categories},
+    )

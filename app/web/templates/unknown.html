@@ -7,8 +7,8 @@
 
 <form method="get" action="/unknown" class="card mb-6 flex flex-wrap items-end gap-3">
     <div>
-        <label class="block text-xs text-neutral-500 mb-1">Status</label>
-        <select name="status" class="input">
+        <label for="filter-status" class="block text-xs text-neutral-500 mb-1">Status</label>
+        <select id="filter-status" name="status" class="input">
             <option value="" {% if filters.status == '' %}selected{% endif %}>Any</option>
             <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pending</option>
             <option value="ignored" {% if filters.status == 'ignored' %}selected{% endif %}>Ignored</option>
@@ -32,30 +32,22 @@
                 <th class="px-4 py-3 font-medium">Actions</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="unknown-tbody">
             {% for item in items %}
-            <tr class="border-b border-neutral-100">
-                <td class="px-4 py-3 whitespace-nowrap">{{ item.created_at }}</td>
-                <td class="px-4 py-3">{{ item.subject or '-' }}</td>
-                <td class="px-4 py-3">{{ item.sender or '-' }}</td>
-                <td class="px-4 py-3">{{ item.transaction_code or '-' }}</td>
-                <td class="px-4 py-3 text-right">{% if item.amount is not none %}฿{{ '{:,.2f}'.format(item.amount) }}{% else %}-{% endif %}</td>
-                <td class="px-4 py-3"><span class="badge {% if item.status == 'pending' %}badge-uncategorized{% else %}badge-expense{% endif %}">{{ item.status }}</span></td>
-                <td class="px-4 py-3 text-xs text-neutral-500">
-                    {% if item.warnings %}
-                        {{ item.warnings|length }} warning(s): {{ item.warnings|join(', ') }}
+            {% include "partials/unknown_row.html" %}
+            {% else %}
+            <tr id="unknown-empty-row">
+                <td colspan="8" class="px-4 py-6 text-center text-neutral-500">
+                    {% if filters.status %}
+                    {% set clear_url = "/unknown" %}
+                    {% include "partials/empty_state_no_match.html" %}
                     {% else %}
-                        -
+                    {% set title = "No unknown emails" %}
+                    {% set message = "All emails have been processed successfully." %}
+                    {% include "partials/empty_state_first_run.html" %}
                     {% endif %}
                 </td>
-                <td class="px-4 py-3 whitespace-nowrap">
-                    <button class="px-2 py-1 rounded-md border border-neutral-300 text-xs hover:bg-neutral-100" onclick="ignoreUnknown({{ item.id }})">Ignore</button>
-                    <button class="px-2 py-1 rounded-md border border-neutral-300 text-xs hover:bg-neutral-100" onclick="reparseUnknown({{ item.id }})">Reparse</button>
-                    <button class="px-2 py-1 rounded-md border border-red-300 text-xs text-red-700 hover:bg-red-50" onclick="deleteUnknown({{ item.id }})">Delete</button>
-                </td>
             </tr>
-            {% else %}
-            <tr><td colspan="8" class="px-4 py-6 text-center text-neutral-500">No unknown emails found.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -77,17 +69,4 @@
         {% endif %}
     </div>
 </div>
-
-<script>
-    function ignoreUnknown(id) {
-        apiCall('/api/unknown/' + id + '/ignore', 'POST').then(() => location.reload());
-    }
-    function reparseUnknown(id) {
-        apiCall('/api/unknown/' + id + '/reparse', 'POST').then(() => location.reload());
-    }
-    function deleteUnknown(id) {
-        if (!confirm('Delete this unknown email record?')) return;
-        apiCall('/api/unknown/' + id, 'DELETE').then(() => location.reload());
-    }
-</script>
 {% endblock %}
