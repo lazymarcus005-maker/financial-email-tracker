@@ -3,7 +3,8 @@
 import logging
 
 import aiosqlite
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse
 
 from app.classification.engine import CategoryEngine
 from app.config import Settings, get_settings
@@ -31,6 +32,7 @@ async def list_runs(
 
 @router.post("/ingestion/run")
 async def trigger_run(
+    request: Request,
     settings: Settings = Depends(get_settings),
     engine: CategoryEngine = Depends(get_category_engine),
 ):
@@ -38,6 +40,30 @@ async def trigger_run(
         summary = await run_ingestion(settings.GMAIL_QUERY, engine=engine)
     except IngestionAlreadyRunningError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
+
+    if request.headers.get("hx-request") == "true":
+        new_count = summary.get("new", 0)
+        scanned_count = summary.get("scanned", 0)
+        return HTMLResponse(
+            f"""<div id="ingestion-run">
+    <button
+        class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+        hx-post="/api/ingestion/run"
+        hx-swap="outerHTML"
+        hx-target="#ingestion-run"
+        hx-disabled-elt="this"
+    >
+        <span class="spinner hidden htmx-indicator">
+            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+        </span>
+        <span class="button-text">Done: {new_count} new, {scanned_count} scanned</span>
+    </button>
+</div>"""
+        )
+
     return summary
 
 

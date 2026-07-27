@@ -23,6 +23,7 @@ async def dashboard(
     stats = await queries.get_dashboard_stats(db)
     expense_days = await queries.get_expense_by_day(db, days=days)
     max_expense = max((item["total"] for item in expense_days), default=0)
+    runs, _ = await queries.list_runs(db, page=1, page_size=5)
     return templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -31,5 +32,6 @@ async def dashboard(
             "expense_days": expense_days,
             "expense_window_days": days,
             "max_expense": max_expense,
+            "runs": runs,
         },
     )

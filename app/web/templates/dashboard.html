@@ -6,74 +6,112 @@
 <div class="flex items-center justify-between mb-6">
     <h1 class="text-xl font-semibold text-neutral-900">Dashboard</h1>
     <div id="ingestion-run">
-        <button
-            class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700"
-            hx-post="/api/ingestion/run"
-            hx-swap="outerHTML"
-            hx-target="#ingestion-run"
-        >
-            Run Ingestion Now
-        </button>
+        {% include "partials/ingestion_button.html" %}
     </div>
 </div>
 
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
     <div class="card">
         <div class="text-sm text-neutral-500">Income Today</div>
-        <div class="text-2xl font-semibold text-green-600 mt-1">฿{{ '{:,.2f}'.format(stats.income_today) }}</div>
+        <div class="text-2xl font-semibold text-green-600 mt-1 tabular-nums">฿{{ '{:,.2f}'.format(stats.income_today) }}</div>
     </div>
     <div class="card">
         <div class="text-sm text-neutral-500">Expense Today</div>
-        <div class="text-2xl font-semibold text-red-600 mt-1">฿{{ '{:,.2f}'.format(stats.expense_today) }}</div>
+        <div class="text-2xl font-semibold text-red-600 mt-1 tabular-nums">฿{{ '{:,.2f}'.format(stats.expense_today) }}</div>
     </div>
     <div class="card">
         <div class="text-sm text-neutral-500">Total Transactions</div>
-        <div class="text-2xl font-semibold text-neutral-900 mt-1">{{ stats.total_transactions }}</div>
+        <div class="text-2xl font-semibold text-neutral-900 mt-1 tabular-nums">{{ stats.total_transactions }}</div>
     </div>
     <div class="card">
         <div class="text-sm text-neutral-500">Uncategorized</div>
-        <div class="text-2xl font-semibold text-amber-600 mt-1">{{ stats.uncategorized }}</div>
+        <div class="text-2xl font-semibold text-amber-600 mt-1 tabular-nums">{{ stats.uncategorized }}</div>
     </div>
     <div class="card">
         <div class="text-sm text-neutral-500">Unknown Parser</div>
-        <div class="text-2xl font-semibold text-amber-600 mt-1">{{ stats.unknown_parser }}</div>
+        <div class="text-2xl font-semibold text-amber-600 mt-1 tabular-nums">{{ stats.unknown_parser }}</div>
     </div>
     <div class="card">
         <div class="text-sm text-neutral-500">Last Sync</div>
-        <div class="text-2xl font-semibold text-neutral-900 mt-1">{{ stats.last_sync or 'Never' }}</div>
+        <div class="text-2xl font-semibold text-neutral-900 mt-1">{{ stats.last_sync | thai_date if stats.last_sync else 'Never' }}</div>
     </div>
 </div>
 
-<div class="card">
-    <div class="flex items-center justify-between gap-3 mb-5">
-        <h2 class="text-sm font-medium text-neutral-900">Expense</h2>
-        <div class="flex rounded-lg border border-neutral-300 overflow-hidden text-sm">
-            {% for option in [7, 14, 30] %}
-            <a
-                href="/?days={{ option }}"
-                class="px-3 py-1.5 {% if expense_window_days == option %}bg-neutral-900 text-white{% else %}text-neutral-700 hover:bg-neutral-100{% endif %}"
-            >{{ option }}</a>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+    <div class="card lg:col-span-2">
+        <div class="flex items-center justify-between gap-3 mb-5">
+            <h2 class="text-sm font-medium text-neutral-900">Expense</h2>
+            <div class="flex rounded-lg border border-neutral-300 overflow-hidden text-sm">
+                {% for option in [7, 14, 30] %}
+                <a
+                    href="/?days={{ option }}"
+                    class="px-3 py-1.5 transition-colors duration-150 {% if expense_window_days == option %}bg-neutral-900 text-white{% else %}text-neutral-700 hover:bg-neutral-100{% endif %}"
+                >{{ option }}</a>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="h-64 flex items-end gap-2 border-b border-neutral-200">
+            {% for item in expense_days %}
+            {% set pct = (item.total / max_expense * 100) if max_expense else 0 %}
+            <div class="flex-1 min-w-0 h-full flex flex-col justify-end items-center gap-2">
+                <div class="text-[11px] text-neutral-500 whitespace-nowrap tabular-nums">฿{{ '{:,.0f}'.format(item.total) }}</div>
+                <div
+                    class="w-full max-w-10 rounded-t-md bg-red-500 hover:bg-red-600 transition-colors duration-150 motion-safe:animate-[growUp_0.4s_ease-out_both]"
+                    style="height: {{ pct if pct > 3 else (3 if item.total > 0 else 0) }}%;"
+                    title="{{ item.day }}: ฿{{ '{:,.2f}'.format(item.total) }}"
+                ></div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="mt-2 flex gap-2 text-[11px] text-neutral-500">
+            {% for item in expense_days %}
+            <div class="flex-1 min-w-0 text-center truncate">{{ item.day[5:] }}</div>
             {% endfor %}
         </div>
     </div>
 
-    <div class="h-64 flex items-end gap-2 border-b border-neutral-200">
-        {% for item in expense_days %}
-        {% set pct = (item.total / max_expense * 100) if max_expense else 0 %}
-        <div class="flex-1 min-w-0 h-full flex flex-col justify-end items-center gap-2">
-            <div class="text-[11px] text-neutral-500 whitespace-nowrap">฿{{ '{:,.0f}'.format(item.total) }}</div>
-            <div
-                class="w-full max-w-10 rounded-t-md bg-red-500 hover:bg-red-600"
-                style="height: {{ pct if pct > 3 else (3 if item.total > 0 else 0) }}%;"
-                title="{{ item.day }}: ฿{{ '{:,.2f}'.format(item.total) }}"
-            ></div>
+    <div class="card">
+        <h2 class="text-sm font-medium text-neutral-900 mb-3">Recent Runs</h2>
+        {% if runs %}
+        <div class="space-y-2">
+            {% for run in runs %}
+            <div class="flex items-center justify-between text-sm">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="badge {% if run.failed and run.failed > 0 %}badge-expense{% else %}badge-income{% endif %}">
+                        {{ run.emails_checked or 0 }} emails
+                    </span>
+                    <span class="text-neutral-500 truncate">{{ run.run_at | thai_date if run.run_at else '' }}</span>
+                </div>
+                <div class="flex items-center gap-1.5 text-xs text-neutral-500 tabular-nums">
+                    <span title="Inserted" class="text-green-600">+{{ run.inserted or 0 }}</span>
+                    {% if run.duplicates and run.duplicates > 0 %}
+                    <span title="Duplicates" class="text-amber-600">~{{ run.duplicates }}</span>
+                    {% endif %}
+                    {% if run.failed and run.failed > 0 %}
+                    <span title="Failed" class="text-red-600">!{{ run.failed }}</span>
+                    <button
+                        class="px-1.5 py-0.5 rounded border border-red-300 text-red-600 text-xs hover:bg-red-50 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-red-400"
+                        hx-post="/api/ingestion/retry/{{ run.id }}"
+                        hx-swap="none"
+                        hx-trigger="click"
+                        title="Retry failed items"
+                    >Retry</button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </div>
-    <div class="mt-2 flex gap-2 text-[11px] text-neutral-500">
-        {% for item in expense_days %}
-        <div class="flex-1 min-w-0 text-center truncate">{{ item.day[5:] }}</div>
-        {% endfor %}
+        {% else %}
+        <p class="text-sm text-neutral-500">No runs yet.</p>
+        {% endif %}
     </div>
 </div>
+
+<style>
+@keyframes growUp {
+    from { transform: scaleY(0); transform-origin: bottom; }
+    to { transform: scaleY(1); transform-origin: bottom; }
+}
+</style>
 {% endblock %}

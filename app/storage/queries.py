@@ -46,6 +46,8 @@ async def list_transactions(
     transaction_type: str | None = None,
     direction: str | None = None,
     search: str | None = None,
+    sort: str | None = None,
+    sort_dir: str | None = None,
 ) -> tuple[list[dict], int]:
     """Return (rows, total_count) for the paginated/filtered transaction list."""
     page = max(1, page)
@@ -80,11 +82,18 @@ async def list_transactions(
     total = (await count_cursor.fetchone())["n"]
     await count_cursor.close()
 
+    # Sort
+    allowed_sorts = {"occurred_at", "amount", "counterparty", "category", "transaction_type", "direction"}
+    if sort and sort in allowed_sorts:
+        order = "ASC" if sort_dir and sort_dir.upper() == "asc" else "DESC"
+        order_clause = f"ORDER BY {sort} {order}, id DESC"
+    else:
+        order_clause = "ORDER BY occurred_at DESC, id DESC"
+
     offset = (page - 1) * page_size
     cursor = await db.execute(
         f"""
-        SELECT * FROM transactions {where_sql}
-        ORDER BY occurred_at DESC, id DESC
+        SELECT * FROM transactions {where_sql} {order_clause}
         LIMIT ? OFFSET ?
         """,
         [*params, page_size, offset],
@@ -267,6 +276,26 @@ async def get_last_sync(db: aiosqlite.Connection) -> str | None:
 
 
 # ---- Dashboard stats ----------------------------------------------------------
+
+async def list_categories(db: aiosqlite.Connection) -> list[str]:
+    """Return distinct non-null categories from transactions, sorted."""
+    cursor = await db.execute(
+        "SELECT DISTINCT category FROM transactions WHERE category IS NOT NULL AND category != '' ORDER BY category ASC"
+    )
+    rows = await cursor.fetchall()
+    await cursor.close()
+    return [r["category"] for r in rows]
+
+
+async def list_transaction_types(db: aiosqlite.Connection) -> list[str]:
+    """Return distinct non-null transaction types from transactions, sorted."""
+    cursor = await db.execute(
+        "SELECT DISTINCT transaction_type FROM transactions WHERE transaction_type IS NOT NULL AND transaction_type != '' ORDER BY transaction_type ASC"
+    )
+    rows = await cursor.fetchall()
+    await cursor.close()
+    return [r["transaction_type"] for r in rows]
+
 
 async def get_dashboard_stats(db: aiosqlite.Connection) -> dict:
     today = date.today().isoformat()

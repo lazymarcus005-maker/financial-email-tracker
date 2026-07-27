@@ -15,6 +15,7 @@
     padding: 0.4rem 0.6rem;
     font-size: 0.875rem;
     background: #fff;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .input:focus {
@@ -49,4 +50,44 @@
 
 .zebra-table tbody tr:nth-child(even) {
     background: #fafafa;
+}
+
+/* Tabular numbers for financial data */
+.tabular-nums {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Focus-visible ring fallback for browsers without Tailwind */
+*:focus-visible {
+    outline: 2px solid #a3a3a3;
+    outline-offset: 2px;
+}
+
+/* HTMX indicator animation */
+.htmx-indicator {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+.htmx-request .htmx-indicator {
+    opacity: 1;
+}
+.htmx-request.htmx-indicator {
+    opacity: 1;
+}
+
+/* Motion-safe chart animation */
+@media (prefers-reduced-motion: no-preference) {
+    .chart-bar {
+        animation: growUp 0.4s ease-out both;
+    }
+}
+
+@keyframes growUp {
+    from { transform: scaleY(0); transform-origin: bottom; }
+    to { transform: scaleY(1); transform-origin: bottom; }
+}
+
+/* Smooth transitions for all interactive elements */
+button, a, input, select, textarea {
+    transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
 }

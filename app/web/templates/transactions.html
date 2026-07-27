@@ -5,26 +5,46 @@
 {% block content %}
 <h1 class="text-xl font-semibold text-neutral-900 mb-6">Transactions</h1>
 
-<form method="get" action="/transactions" class="card mb-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
+<form
+    method="get"
+    action="/transactions"
+    class="card mb-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end"
+    hx-get="/transactions"
+    hx-trigger="input changed delay:300ms, search changed delay:300ms"
+    hx-target="#transactions-table"
+    hx-push-url="true"
+    hx-select="#transactions-table"
+    hx-swap="outerHTML"
+>
     <div>
-        <label class="block text-xs text-neutral-500 mb-1">Date From</label>
-        <input type="date" name="date_from" value="{{ filters.date_from }}" class="input">
+        <label for="filter-date-from" class="block text-xs text-neutral-500 mb-1">Date From</label>
+        <input type="date" id="filter-date-from" name="date_from" value="{{ filters.date_from }}" class="input focus-visible:ring-2 focus-visible:ring-neutral-400">
     </div>
     <div>
-        <label class="block text-xs text-neutral-500 mb-1">Date To</label>
-        <input type="date" name="date_to" value="{{ filters.date_to }}" class="input">
+        <label for="filter-date-to" class="block text-xs text-neutral-500 mb-1">Date To</label>
+        <input type="date" id="filter-date-to" name="date_to" value="{{ filters.date_to }}" class="input focus-visible:ring-2 focus-visible:ring-neutral-400">
     </div>
     <div>
-        <label class="block text-xs text-neutral-500 mb-1">Category</label>
-        <input type="text" name="category" value="{{ filters.category }}" class="input">
+        <label for="filter-category" class="block text-xs text-neutral-500 mb-1">Category</label>
+        <select id="filter-category" name="category" class="input focus-visible:ring-2 focus-visible:ring-neutral-400">
+            <option value="">All</option>
+            {% for cat in categories %}
+            <option value="{{ cat }}" {% if filters.category == cat %}selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+        </select>
     </div>
     <div>
-        <label class="block text-xs text-neutral-500 mb-1">Type</label>
-        <input type="text" name="transaction_type" value="{{ filters.transaction_type }}" class="input">
+        <label for="filter-type" class="block text-xs text-neutral-500 mb-1">Type</label>
+        <select id="filter-type" name="transaction_type" class="input focus-visible:ring-2 focus-visible:ring-neutral-400">
+            <option value="">All</option>
+            {% for t in types %}
+            <option value="{{ t }}" {% if filters.transaction_type == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+        </select>
     </div>
     <div>
-        <label class="block text-xs text-neutral-500 mb-1">Direction</label>
-        <select name="direction" class="input">
+        <label for="filter-direction" class="block text-xs text-neutral-500 mb-1">Direction</label>
+        <select id="filter-direction" name="direction" class="input focus-visible:ring-2 focus-visible:ring-neutral-400">
             <option value="" {% if filters.direction == '' %}selected{% endif %}>Any</option>
             <option value="in" {% if filters.direction == 'in' %}selected{% endif %}>In</option>
             <option value="out" {% if filters.direction == 'out' %}selected{% endif %}>Out</option>
@@ -33,69 +53,111 @@
         </select>
     </div>
     <div>
-        <label class="block text-xs text-neutral-500 mb-1">Search</label>
-        <input type="text" name="search" value="{{ filters.search }}" class="input">
+        <label for="filter-search" class="block text-xs text-neutral-500 mb-1">Search</label>
+        <input type="text" id="filter-search" name="search" value="{{ filters.search }}" class="input focus-visible:ring-2 focus-visible:ring-neutral-400" placeholder="Search counterparty/description...">
     </div>
     <div class="col-span-2 sm:col-span-3 lg:col-span-6 flex gap-2">
-        <button type="submit" class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700">Filter</button>
-        <a href="/transactions" class="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-100">Clear</a>
+        <button type="submit" class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2">Filter</button>
+        <a href="/transactions" class="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-100 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-neutral-400">Clear</a>
     </div>
 </form>
 
-<div class="card p-0 overflow-x-auto">
-    <table class="min-w-full text-sm zebra-table">
-        <thead>
-            <tr class="text-left text-neutral-500 border-b border-neutral-200">
-                <th class="px-4 py-3 font-medium">Date</th>
-                <th class="px-4 py-3 font-medium">Counterparty</th>
-                <th class="px-4 py-3 font-medium">Description</th>
-                <th class="px-4 py-3 font-medium">Type</th>
-                <th class="px-4 py-3 font-medium">Direction</th>
-                <th class="px-4 py-3 font-medium text-right">Amount</th>
-                <th class="px-4 py-3 font-medium">Category</th>
-                <th class="px-4 py-3 font-medium">Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in items %}
-            <tr class="border-b border-neutral-100 hover:bg-neutral-50 cursor-pointer" onclick="window.location='/transactions/{{ item.id }}'">
-                <td class="px-4 py-3 whitespace-nowrap">
-                    <div class="text-neutral-900">{{ item.occurred_date or '-' }}</div>
-                    <div class="text-xs text-neutral-500">{{ item.occurred_time or item.occurred_at }}</div>
-                </td>
-                <td class="px-4 py-3">{{ item.counterparty or '-' }}</td>
-                <td class="px-4 py-3">{{ item.description or '-' }}</td>
-                <td class="px-4 py-3">{{ item.transaction_type or '-' }}</td>
-                <td class="px-4 py-3">{{ item.direction }}</td>
-                <td class="px-4 py-3 text-right font-medium {% if item.direction == 'in' %}text-green-600{% elif item.direction == 'out' %}text-red-600{% else %}text-neutral-700{% endif %}">
-                    ฿{{ '{:,.2f}'.format(item.amount) }}
-                </td>
-                <td class="px-4 py-3">
-                    <span class="badge {% if item.category and item.category != 'Uncategorized' %}badge-income{% else %}badge-uncategorized{% endif %}">{{ item.category or 'Uncategorized' }}</span>
-                </td>
-                <td class="px-4 py-3">{{ item.parse_status }}</td>
-            </tr>
-            {% else %}
-            <tr><td colspan="8" class="px-4 py-6 text-center text-neutral-500">No transactions found.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+{% macro sort_link(label, col) %}
+{% set new_dir = 'asc' if sort == col and sort_dir == 'desc' else 'desc' %}
+<a
+    href="?date_from={{ filters.date_from | urlencode }}&date_to={{ filters.date_to | urlencode }}&category={{ filters.category | urlencode }}&transaction_type={{ filters.transaction_type | urlencode }}&direction={{ filters.direction | urlencode }}&search={{ filters.search | urlencode }}&sort={{ col }}&dir={{ new_dir }}"
+    class="inline-flex items-center gap-1 hover:text-neutral-900 transition-colors duration-150"
+    hx-get="/transactions?date_from={{ filters.date_from | urlencode }}&date_to={{ filters.date_to | urlencode }}&category={{ filters.category | urlencode }}&transaction_type={{ filters.transaction_type | urlencode }}&direction={{ filters.direction | urlencode }}&search={{ filters.search | urlencode }}&sort={{ col }}&dir={{ new_dir }}"
+    hx-target="#transactions-table"
+    hx-push-url="true"
+    hx-select="#transactions-table"
+    hx-swap="outerHTML"
+>
+    {{ label }}
+    {% if sort == col %}
+    <span class="text-xs">{{ '▲' if sort_dir == 'asc' else '▼' }}</span>
+    {% endif %}
+</a>
+{% endmacro %}
 
-{% set qs_base = 'date_from=' ~ (filters.date_from|urlencode) ~ '&date_to=' ~ (filters.date_to|urlencode) ~ '&category=' ~ (filters.category|urlencode) ~ '&transaction_type=' ~ (filters.transaction_type|urlencode) ~ '&direction=' ~ (filters.direction|urlencode) ~ '&search=' ~ (filters.search|urlencode) ~ '&page_size=' ~ page_size %}
-<div class="flex items-center justify-between mt-4 text-sm">
-    <div class="text-neutral-500">Page {{ page }} of {{ total_pages }} ({{ total }} total)</div>
-    <div class="flex gap-2">
-        {% if page > 1 %}
-        <a href="/transactions?{{ qs_base }}&page={{ page - 1 }}" class="px-3 py-1.5 rounded-md border border-neutral-300 hover:bg-neutral-100">Prev</a>
-        {% else %}
-        <span class="px-3 py-1.5 rounded-md border border-neutral-200 text-neutral-400">Prev</span>
-        {% endif %}
-        {% if page < total_pages %}
-        <a href="/transactions?{{ qs_base }}&page={{ page + 1 }}" class="px-3 py-1.5 rounded-md border border-neutral-300 hover:bg-neutral-100">Next</a>
-        {% else %}
-        <span class="px-3 py-1.5 rounded-md border border-neutral-200 text-neutral-400">Next</span>
-        {% endif %}
+<div id="transactions-table">
+    <div class="card p-0 overflow-x-auto">
+        <table class="min-w-full text-sm zebra-table">
+            <thead>
+                <tr class="text-left text-neutral-500 border-b border-neutral-200">
+                    <th class="px-4 py-3 font-medium">{{ sort_link('Date', 'occurred_at') }}</th>
+                    <th class="px-4 py-3 font-medium">{{ sort_link('Counterparty', 'counterparty') }}</th>
+                    <th class="px-4 py-3 font-medium">Description</th>
+                    <th class="px-4 py-3 font-medium">{{ sort_link('Type', 'transaction_type') }}</th>
+                    <th class="px-4 py-3 font-medium">{{ sort_link('Direction', 'direction') }}</th>
+                    <th class="px-4 py-3 font-medium text-right">{{ sort_link('Amount', 'amount') }}</th>
+                    <th class="px-4 py-3 font-medium">{{ sort_link('Category', 'category') }}</th>
+                    <th class="px-4 py-3 font-medium">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr class="border-b border-neutral-100 hover:bg-neutral-50 transition-colors duration-150 relative">
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="text-neutral-900">{{ item.occurred_date or '-' }}</div>
+                        <div class="text-xs text-neutral-500">{{ item.occurred_time or item.occurred_at }}</div>
+                    </td>
+                    <td class="px-4 py-3">{% if item.counterparty and item.counterparty != '-' %}<span lang="th" class="font-thai">{{ item.counterparty }}</span>{% else %}-{% endif %}</td>
+                    <td class="px-4 py-3">{% if item.description and item.description != '-' %}<span lang="th" class="font-thai">{{ item.description }}</span>{% else %}-{% endif %}</td>
+                    <td class="px-4 py-3">{{ item.transaction_type or '-' }}</td>
+                    <td class="px-4 py-3">{{ item.direction }}</td>
+                    <td class="px-4 py-3 text-right font-medium tabular-nums {% if item.direction == 'in' %}text-green-600{% elif item.direction == 'out' %}text-red-600{% else %}text-neutral-700{% endif %}">
+                        ฿{{ '{:,.2f}'.format(item.amount) }}
+                    </td>
+                    <td class="px-4 py-3">
+                        <span
+                            class="badge {% if item.category and item.category != 'Uncategorized' %}badge-income{% else %}badge-uncategorized{% endif %} cursor-pointer hover:opacity-80 transition-opacity duration-150"
+                            hx-get="/transactions/{{ item.id }}/edit-category"
+                            hx-target="closest td"
+                            hx-swap="innerHTML"
+                            hx-trigger="click"
+                            title="Click to edit category"
+                        >{{ item.category or 'Uncategorized' }}</span>
+                    </td>
+                    <td class="px-4 py-3 relative">
+                        {{ item.parse_status }}
+                        <a href="/transactions/{{ item.id }}" class="absolute inset-0" tabindex="0" aria-label="View transaction {{ item.id }}"></a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="px-4 py-6 text-center text-neutral-500">
+                    {% if filters.date_from or filters.date_to or filters.category or filters.transaction_type or filters.direction or filters.search %}
+                    {% include "partials/empty_state_no_match.html" with clear_url="/transactions" %}
+                    {% else %}
+                    {% include "partials/empty_state_first_run.html" with title="No transactions yet" message="Run your first ingestion to get started." %}
+                    {% endif %}
+                </td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% set qs_base = 'date_from=' ~ (filters.date_from|urlencode) ~ '&date_to=' ~ (filters.date_to|urlencode) ~ '&category=' ~ (filters.category|urlencode) ~ '&transaction_type=' ~ (filters.transaction_type|urlencode) ~ '&direction=' ~ (filters.direction|urlencode) ~ '&search=' ~ (filters.search|urlencode) ~ '&page_size=' ~ page_size ~ '&sort=' ~ sort ~ '&dir=' ~ sort_dir %}
+    <div class="flex items-center justify-between mt-4 text-sm">
+        <div class="text-neutral-500">Page {{ page }} of {{ total_pages }} ({{ total }} total)</div>
+        <div class="flex gap-2">
+            {% if page > 1 %}
+            <a href="/transactions?{{ qs_base }}&page={{ page - 1 }}" class="px-3 py-1.5 rounded-md border border-neutral-300 hover:bg-neutral-100 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-neutral-400">Prev</a>
+            {% else %}
+            <span class="px-3 py-1.5 rounded-md border border-neutral-200 text-neutral-400">Prev</span>
+            {% endif %}
+            {% if page < total_pages %}
+            <a href="/transactions?{{ qs_base }}&page={{ page + 1 }}" class="px-3 py-1.5 rounded-md border border-neutral-300 hover:bg-neutral-100 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-neutral-400">Next</a>
+            {% else %}
+            <span class="px-3 py-1.5 rounded-md border border-neutral-200 text-neutral-400">Next</span>
+            {% endif %}
+        </div>
     </div>
 </div>
+
+<datalist id="categories">
+    {% for cat in categories %}
+    <option value="{{ cat }}">
+    {% endfor %}
+</datalist>
 {% endblock %}

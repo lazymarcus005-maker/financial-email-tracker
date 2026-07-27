@@ -25,7 +25,7 @@
         </div>
         <div>
             <dt class="text-xs text-neutral-500">AI Enabled</dt>
-            <dd class="text-sm mt-0.5"><span class="badge {% if settings.ai_enabled %}badge-income{% else %}badge-uncategorized{% endif %}">{{ 'Yes' if settings.ai_enabled else 'No' }}</span></dd>
+            <dd class="text-sm mt-0.5"><span class="badge {% if settings.ai_enabled %}badge-success{% else %}badge-neutral{% endif %}">{{ 'Yes' if settings.ai_enabled else 'No' }}</span></dd>
         </div>
         <div>
             <dt class="text-xs text-neutral-500">Ollama Base URL</dt>
@@ -41,7 +41,7 @@
         </div>
         <div>
             <dt class="text-xs text-neutral-500">LINE Configured</dt>
-            <dd class="text-sm mt-0.5"><span class="badge {% if settings.line_configured %}badge-income{% else %}badge-uncategorized{% endif %}">{{ 'Yes' if settings.line_configured else 'No' }}</span></dd>
+            <dd class="text-sm mt-0.5"><span class="badge {% if settings.line_configured %}badge-success{% else %}badge-neutral{% endif %}">{{ 'Yes' if settings.line_configured else 'No' }}</span></dd>
         </div>
         <div>
             <dt class="text-xs text-neutral-500">Log Level</dt>

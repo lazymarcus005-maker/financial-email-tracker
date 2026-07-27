@@ -30,26 +30,35 @@ async def list_unknown(
 
 
 @router.post("/unknown/{unknown_id}/ignore")
-async def ignore_unknown(unknown_id: int, db: aiosqlite.Connection = Depends(get_db)):
+async def ignore_unknown(unknown_id: int, request: Request, db: aiosqlite.Connection = Depends(get_db)):
     row = await queries.get_unknown(db, unknown_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Unknown pattern not found")
     await queries.set_unknown_status(db, unknown_id, "ignored")
-    return await queries.get_unknown(db, unknown_id)
+    item = await queries.get_unknown(db, unknown_id)
+    # HTMX: return updated row partial
+    if request.headers.get("HX-Request") == "true":
+        return templates.TemplateResponse(request, "partials/unknown_row.html", {"item": item})
+    return item
 
 
 @router.delete("/unknown/{unknown_id}", status_code=204)
-async def delete_unknown(unknown_id: int, db: aiosqlite.Connection = Depends(get_db)):
+async def delete_unknown(unknown_id: int, request: Request, db: aiosqlite.Connection = Depends(get_db)):
     row = await queries.get_unknown(db, unknown_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Unknown pattern not found")
     await queries.delete_unknown(db, unknown_id)
+    # HTMX: return empty to remove row
+    if request.headers.get("HX-Request") == "true":
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse("")
     return None
 
 
 @router.post("/unknown/{unknown_id}/reparse")
 async def reparse(
     unknown_id: int,
+    request: Request,
     db: aiosqlite.Connection = Depends(get_db),
     gmail_client: GmailClient = Depends(get_gmail_client),
     registry: ParserRegistry = Depends(get_parser_registry),
@@ -58,6 +67,10 @@ async def reparse(
     result = await reparse_unknown(db, unknown_id, gmail_client=gmail_client, registry=registry, engine=engine)
     if result["status"] == "not_found":
         raise HTTPException(status_code=404, detail="Unknown pattern not found")
+    # HTMX: return updated row partial
+    if request.headers.get("HX-Request") == "true":
+        item = await queries.get_unknown(db, unknown_id)
+        return templates.TemplateResponse(request, "partials/unknown_row.html", {"item": item})
     return result
 
 

@@ -10,13 +10,13 @@
     <div class="flex flex-wrap items-end gap-3">
         <div>
             <label class="block text-xs text-neutral-500 mb-1">Counterparty</label>
-            <input type="text" id="new-counterparty" class="input">
+            <input type="text" id="new-counterparty" class="input focus-visible:ring-2 focus-visible:ring-neutral-400">
         </div>
         <div>
             <label class="block text-xs text-neutral-500 mb-1">Category</label>
-            <input type="text" id="new-category" class="input">
+            <input type="text" id="new-category" class="input focus-visible:ring-2 focus-visible:ring-neutral-400" list="categories">
         </div>
-        <button class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700" onclick="addMapping()">Add Mapping</button>
+        <button class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2" onclick="addMapping()">Add Mapping</button>
     </div>
 </div>
 
@@ -34,15 +34,15 @@
         <tbody>
             {% for item in items %}
             <tr class="border-b border-neutral-100">
-                <td class="px-4 py-3">{{ item.counterparty }}</td>
+                <td class="px-4 py-3">{% if item.counterparty %}<span lang="th" class="font-thai">{{ item.counterparty }}</span>{% else %}-{% endif %}</td>
                 <td class="px-4 py-3">
-                    <input type="text" id="category-{{ item.id }}" value="{{ item.category }}" class="input">
+                    <input type="text" id="category-{{ item.id }}" value="{{ item.category }}" class="input focus-visible:ring-2 focus-visible:ring-neutral-400" list="categories">
                 </td>
                 <td class="px-4 py-3">{{ item.source or '-' }}</td>
-                <td class="px-4 py-3 whitespace-nowrap">{{ item.created_at }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">{{ item.created_at | thai_date if item.created_at else item.created_at }}</td>
                 <td class="px-4 py-3 whitespace-nowrap">
-                    <button class="px-2 py-1 rounded-md border border-neutral-300 text-xs hover:bg-neutral-100" onclick="saveMapping({{ item.id }})">Save</button>
-                    <button class="px-2 py-1 rounded-md border border-red-300 text-red-600 text-xs hover:bg-red-50" onclick="deleteMapping({{ item.id }})">Delete</button>
+                    <button class="px-2 py-1 rounded-md border border-neutral-300 text-xs hover:bg-neutral-100 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-neutral-400" onclick="saveMapping({{ item.id }})">Save</button>
+                    <button class="px-2 py-1 rounded-md border border-red-300 text-red-600 text-xs hover:bg-red-50 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-red-400" onclick="deleteMapping({{ item.id }})">Delete</button>
                 </td>
             </tr>
             {% else %}
@@ -51,6 +51,12 @@
         </tbody>
     </table>
 </div>
+
+<datalist id="categories">
+    {% for item in items %}
+    <option value="{{ item.category }}">
+    {% endfor %}
+</datalist>
 
 <script>
     function addMapping() {

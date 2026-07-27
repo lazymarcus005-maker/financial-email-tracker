@@ -1,0 +1,54 @@
+<div id="transaction-actions" class="card mb-6">
+    <h2 class="text-sm font-medium text-neutral-900 mb-3">Actions</h2>
+    <div class="flex flex-wrap items-end gap-3">
+        <div>
+            <label for="category-input" class="block text-xs text-neutral-500 mb-1">Category</label>
+            <input type="text" id="category-input" value="{{ t.category or '' }}" class="input">
+        </div>
+        <button
+            class="px-3 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700"
+            hx-patch="/api/transactions/{{ t.id }}"
+            hx-target="#transaction-actions"
+            hx-swap="outerHTML"
+            hx-vals='js:{category: document.getElementById("category-input").value}'
+            hx-disabled-elt="this"
+        >Save Category</button>
+
+        {% if t.status == 'ignored' %}
+        <button
+            class="px-3 py-2 rounded-lg border border-neutral-300 text-sm font-medium hover:bg-neutral-100"
+            hx-patch="/api/transactions/{{ t.id }}"
+            hx-target="#transaction-actions"
+            hx-swap="outerHTML"
+            hx-vals='{"ignore": false}'
+            hx-disabled-elt="this"
+        >Unignore</button>
+        {% else %}
+        <button
+            class="px-3 py-2 rounded-lg border border-neutral-300 text-sm font-medium hover:bg-neutral-100"
+            hx-patch="/api/transactions/{{ t.id }}"
+            hx-target="#transaction-actions"
+            hx-swap="outerHTML"
+            hx-vals='{"ignore": true}'
+            hx-disabled-elt="this"
+        >Ignore</button>
+        {% endif %}
+
+        <button
+            class="px-3 py-2 rounded-lg border border-neutral-300 text-sm font-medium hover:bg-neutral-100"
+            hx-post="/api/reparse/{{ t.id }}"
+            hx-target="#transaction-actions"
+            hx-swap="outerHTML"
+            hx-disabled-elt="this"
+        >Reparse</button>
+
+        <button
+            class="px-3 py-2 rounded-lg border border-red-300 text-sm font-medium text-red-700 hover:bg-red-50"
+            hx-delete="/api/transactions/{{ t.id }}"
+            hx-target="body"
+            hx-swap="innerHTML"
+            hx-confirm="Delete this transaction?"
+            hx-disabled-elt="this"
+        >Delete</button>
+    </div>
+</div>
