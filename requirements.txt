@@ -1,0 +1,33 @@
+# Financial Email Tracker - Requirements
+
+python==3.12
+fastapi==0.104.0
+uvicorn[standard]==0.24.0
+
+# Gmail
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.1.0
+google-api-python-client==2.100.0
+
+# Database
+aiosqlite==0.19.0
+
+# LINE
+line-bot-sdk==3.5.0
+
+# Utilities
+pydantic==2.5.0
+pydantic-settings==2.1.0
+python-dateutil==2.8.2
+pytz==2023.3
+
+# Testing
+pytest==7.4.0
+pytest-asyncio==0.21.0
+pytest-cov==4.1.0
+
+# Logging
+python-json-logger==2.0.7
+
+# Optional: AI
+# ollama==0.1.0  # Uncomment if using local Ollama for categorization

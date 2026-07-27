@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: financial-email-tracker
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
+      - ./data:/app/data
+      - ./secrets:/app/secrets
+    environment:
+      - DATABASE_PATH=/app/data/finance.db
+      - LOG_LEVEL=INFO
+    command: uvicorn app.web.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - finance
+
+  # Optional: Ollama for categorization
+  ollama:
+    image: ollama/ollama:latest
+    container_name: finance-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - finance
+    profiles:
+      - ai  # Run with: docker compose --profile ai up
+
+volumes:
+  ollama_data:
+
+networks:
+  finance:
+    driver: bridge

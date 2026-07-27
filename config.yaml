@@ -1,0 +1,38 @@
+# Financial Email Tracker Config
+
+# Gmail
+GMAIL_QUERY: "from:(KPLUS@kasikornbank.com) newer_than:2d"
+GMAIL_CREDENTIALS_PATH: "secrets/credentials.json"
+GMAIL_TOKEN_PATH: "secrets/token.json"
+
+# Database
+DATABASE_PATH: "data/finance.db"
+
+# Scheduler (Cron times in Asia/Bangkok)
+SCHEDULE:
+  - "05:00"  # Early morning
+  - "10:00"  # Mid-morning
+  - "14:00"  # Afternoon
+  - "22:00"  # Evening (Daily summary)
+
+TIMEZONE: "Asia/Bangkok"
+
+# LINE
+LINE_CHANNEL_ACCESS_TOKEN: "{{ env.LINE_CHANNEL_ACCESS_TOKEN }}"
+LINE_USER_ID: "{{ env.LINE_USER_ID }}"
+
+# AI (optional)
+AI_ENABLED: false
+OLLAMA_BASE_URL: "http://localhost:11434"
+OLLAMA_MODEL: "qwen3:1.7b"  # or gemma3:1b
+
+# Parser
+PARSER_VERSION: "1.0"
+
+# Web
+WEB_HOST: "0.0.0.0"
+WEB_PORT: 8000
+
+# Logging
+LOG_LEVEL: "INFO"
+LOG_FORMAT: "json"  # or "text"

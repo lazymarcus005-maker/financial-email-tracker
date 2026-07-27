@@ -1,0 +1,34 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Secrets
+secrets/
+credentials.json
+token.json
+.env
+.env.local
+
+# Data
+data/
+finance.db
+*.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
