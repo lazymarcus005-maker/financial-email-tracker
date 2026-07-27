@@ -50,6 +50,7 @@ async def run_ingestion(
                 logger.info(
                     f"Skipping duplicate transaction (reference/fingerprint match) for message {message.gmail_message_id}"
                 )
+                await persistence.clear_unknown(db, message.gmail_message_id)
                 duplicates += 1
                 continue
 
@@ -57,6 +58,7 @@ async def run_ingestion(
                 db, persistence.transaction_to_dict(transaction)
             )
             await persistence.insert_transaction(db, message, transaction, category, category_source.value)
+            await persistence.clear_unknown(db, message.gmail_message_id)
             inserted += 1
 
         duration = time.monotonic() - started_at

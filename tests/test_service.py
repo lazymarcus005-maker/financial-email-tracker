@@ -107,6 +107,31 @@ async def test_logs_unparseable_email_as_unknown(temp_db):
 
 
 @pytest.mark.asyncio
+async def test_successful_ingestion_clears_existing_unknown(temp_db):
+    message = _make_message("msg-unknown-fixed")
+    failing_reader = FakeReader([message])
+    failing_registry = FakeRegistry({})
+
+    await run_ingestion("query", reader=failing_reader, registry=failing_registry)
+
+    fixed_reader = FakeReader([message])
+    fixed_registry = FakeRegistry({message.sender: _make_transaction()})
+    summary = await run_ingestion("query", reader=fixed_reader, registry=fixed_registry)
+
+    assert summary == {"emails_checked": 1, "inserted": 1, "duplicates": 0, "failed": 0}
+
+    db = await database.get_connection()
+    cursor = await db.execute("SELECT COUNT(*) AS n FROM unknown_patterns WHERE gmail_message_id = ?", (message.gmail_message_id,))
+    unknown_count = (await cursor.fetchone())["n"]
+    cursor = await db.execute("SELECT COUNT(*) AS n FROM transactions WHERE gmail_message_id = ?", (message.gmail_message_id,))
+    transaction_count = (await cursor.fetchone())["n"]
+    await db.close()
+
+    assert unknown_count == 0
+    assert transaction_count == 1
+
+
+@pytest.mark.asyncio
 async def test_records_ingestion_run(temp_db):
     message = _make_message("msg-4")
     reader = FakeReader([message])

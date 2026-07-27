@@ -118,6 +118,11 @@ async def insert_unknown(db, message: EmailMessage, transaction: Transaction | N
     logger.warning(f"Could not parse message {message.gmail_message_id} ({message.subject!r}); logged as unknown")
 
 
+async def clear_unknown(db, gmail_message_id: str) -> None:
+    """Remove a previously-failed unknown row once the message parses successfully."""
+    await db.execute("DELETE FROM unknown_patterns WHERE gmail_message_id = ?", (gmail_message_id,))
+
+
 def extract_transaction_code(raw_fields: dict) -> str | None:
     """Best-effort pull of a reference/transaction-code value from raw label:value fields."""
     for label, value in raw_fields.items():
