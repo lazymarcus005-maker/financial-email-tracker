@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Financial Email Tracker{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-xl font-semibold text-neutral-900">Dashboard</h1>
+    <div id="ingestion-run">
+        <button
+            class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700"
+            hx-post="/api/ingestion/run"
+            hx-swap="outerHTML"
+            hx-target="#ingestion-run"
+        >
+            Run Ingestion Now
+        </button>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+    <div class="card">
+        <div class="text-sm text-neutral-500">Income Today</div>
+        <div class="text-2xl font-semibold text-green-600 mt-1">฿{{ '{:,.2f}'.format(stats.income_today) }}</div>
+    </div>
+    <div class="card">
+        <div class="text-sm text-neutral-500">Expense Today</div>
+        <div class="text-2xl font-semibold text-red-600 mt-1">฿{{ '{:,.2f}'.format(stats.expense_today) }}</div>
+    </div>
+    <div class="card">
+        <div class="text-sm text-neutral-500">Total Transactions</div>
+        <div class="text-2xl font-semibold text-neutral-900 mt-1">{{ stats.total_transactions }}</div>
+    </div>
+    <div class="card">
+        <div class="text-sm text-neutral-500">Uncategorized</div>
+        <div class="text-2xl font-semibold text-amber-600 mt-1">{{ stats.uncategorized }}</div>
+    </div>
+    <div class="card">
+        <div class="text-sm text-neutral-500">Unknown Parser</div>
+        <div class="text-2xl font-semibold text-amber-600 mt-1">{{ stats.unknown_parser }}</div>
+    </div>
+    <div class="card">
+        <div class="text-sm text-neutral-500">Last Sync</div>
+        <div class="text-2xl font-semibold text-neutral-900 mt-1">{{ stats.last_sync or 'Never' }}</div>
+    </div>
+</div>
+{% endblock %}

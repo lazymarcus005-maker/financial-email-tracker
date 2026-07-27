@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Mappings - Financial Email Tracker{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-neutral-900 mb-6">Counterparty Mappings</h1>
+
+<div class="card mb-6">
+    <h2 class="text-sm font-medium text-neutral-900 mb-3">Add Mapping</h2>
+    <div class="flex flex-wrap items-end gap-3">
+        <div>
+            <label class="block text-xs text-neutral-500 mb-1">Counterparty</label>
+            <input type="text" id="new-counterparty" class="input">
+        </div>
+        <div>
+            <label class="block text-xs text-neutral-500 mb-1">Category</label>
+            <input type="text" id="new-category" class="input">
+        </div>
+        <button class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700" onclick="addMapping()">Add Mapping</button>
+    </div>
+</div>
+
+<div class="card p-0 overflow-x-auto">
+    <table class="min-w-full text-sm zebra-table">
+        <thead>
+            <tr class="text-left text-neutral-500 border-b border-neutral-200">
+                <th class="px-4 py-3 font-medium">Counterparty</th>
+                <th class="px-4 py-3 font-medium">Category</th>
+                <th class="px-4 py-3 font-medium">Source</th>
+                <th class="px-4 py-3 font-medium">Created</th>
+                <th class="px-4 py-3 font-medium">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr class="border-b border-neutral-100">
+                <td class="px-4 py-3">{{ item.counterparty }}</td>
+                <td class="px-4 py-3">
+                    <input type="text" id="category-{{ item.id }}" value="{{ item.category }}" class="input">
+                </td>
+                <td class="px-4 py-3">{{ item.source or '-' }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">{{ item.created_at }}</td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <button class="px-2 py-1 rounded-md border border-neutral-300 text-xs hover:bg-neutral-100" onclick="saveMapping({{ item.id }})">Save</button>
+                    <button class="px-2 py-1 rounded-md border border-red-300 text-red-600 text-xs hover:bg-red-50" onclick="deleteMapping({{ item.id }})">Delete</button>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="px-4 py-6 text-center text-neutral-500">No mappings yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    function addMapping() {
+        const counterparty = document.getElementById('new-counterparty').value;
+        const category = document.getElementById('new-category').value;
+        apiCall('/api/mappings', 'POST', { counterparty: counterparty, category: category }).then(() => location.reload());
+    }
+    function saveMapping(id) {
+        const category = document.getElementById('category-' + id).value;
+        apiCall('/api/mappings/' + id, 'PATCH', { category: category }).then(() => location.reload());
+    }
+    function deleteMapping(id) {
+        apiCall('/api/mappings/' + id, 'DELETE').then(() => location.reload());
+    }
+</script>
+{% endblock %}

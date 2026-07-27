@@ -1,7 +1,11 @@
-"""Category engine - Rule-based + AI fallback."""
+"""Category engine - Manual > History > Rule > AI > Uncategorized."""
 
 import logging
 from enum import Enum
+
+import aiosqlite
+
+from app.classification import ai, history
 
 logger = logging.getLogger(__name__)
 
@@ -15,47 +19,70 @@ class CategorySource(str, Enum):
     UNCATEGORIZED = "uncategorized"
 
 
+DEFAULT_RULES = {
+    # counterparty substring (lowercase) -> category
+    "shopee": "Shopping",
+    "lazada": "Shopping",
+    "netflix": "Subscription",
+    "spotify": "Subscription",
+}
+
+
 class CategoryEngine:
     """Categorize transactions based on priority:
     1. Manual override
-    2. History (same counterparty)
+    2. History (same counterparty seen before)
     3. Rule-based mapping
     4. AI (optional, if enabled)
     5. Uncategorized
     """
-    
-    def __init__(self, ai_enabled: bool = False):
+
+    def __init__(
+        self,
+        ai_enabled: bool = False,
+        rules: dict[str, str] | None = None,
+        ollama_base_url: str = "http://localhost:11434",
+        ollama_model: str = "qwen3:1.7b",
+    ):
         self.ai_enabled = ai_enabled
-        self.rules = {
-            # Examples - load from config
-            "shopee": "Shopping",
-            "lazada": "Shopping",
-            "netflix": "Subscription",
-            "spotify": "Subscription",
-        }
-    
-    def categorize(self, transaction: dict, manual_override: str | None = None) -> tuple[str, CategorySource]:
-        """Categorize transaction.
-        
-        Returns: (category, source)
-        """
-        # 1. Manual override
+        self.rules = rules if rules is not None else dict(DEFAULT_RULES)
+        self.ollama_base_url = ollama_base_url
+        self.ollama_model = ollama_model
+
+    def _match_rule(self, counterparty: str | None) -> str | None:
+        if not counterparty:
+            return None
+        counterparty_lower = counterparty.lower()
+        for key, category in self.rules.items():
+            if key in counterparty_lower:
+                return category
+        return None
+
+    async def categorize(
+        self,
+        db: aiosqlite.Connection,
+        transaction: dict,
+        manual_override: str | None = None,
+    ) -> tuple[str, CategorySource]:
+        """Categorize a transaction. Returns (category, source)."""
         if manual_override:
             return manual_override, CategorySource.MANUAL
-        
-        # 2. History (lookup counterparty in DB)
-        # TODO: Implement history lookup
-        
-        # 3. Rule-based
-        counterparty = transaction.get("counterparty", "").lower()
-        for key, category in self.rules.items():
-            if key in counterparty:
-                return category, CategorySource.RULE
-        
-        # 4. AI (if enabled)
+
+        counterparty = transaction.get("counterparty")
+
+        history_category = await history.lookup(db, counterparty)
+        if history_category:
+            return history_category, CategorySource.HISTORY
+
+        rule_category = self._match_rule(counterparty)
+        if rule_category:
+            return rule_category, CategorySource.RULE
+
         if self.ai_enabled:
-            # TODO: Call AI categorizer
-            pass
-        
-        # 5. Uncategorized
+            ai_category = await ai.categorize(
+                transaction, base_url=self.ollama_base_url, model=self.ollama_model
+            )
+            if ai_category:
+                return ai_category, CategorySource.AI
+
         return "Uncategorized", CategorySource.UNCATEGORIZED

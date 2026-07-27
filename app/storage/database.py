@@ -22,11 +22,13 @@ CREATE TABLE IF NOT EXISTS transactions (
     fee REAL DEFAULT 0.0,
     available_balance REAL,
     counterparty TEXT,
+    description TEXT,
     category TEXT,
     category_source TEXT,  -- manual, history, rule, ai, uncategorized
     parser_version TEXT,
     parse_status TEXT,  -- complete, partial, failed, ignored
     parse_confidence REAL DEFAULT 1.0,
+    warnings_json TEXT DEFAULT '[]',
     raw_fields_json TEXT,
     gmail_message_id TEXT UNIQUE NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -65,7 +67,12 @@ CREATE TABLE IF NOT EXISTS unknown_patterns (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     subject TEXT,
     sender TEXT,
+    transaction_code TEXT,
+    amount REAL,
+    warnings_json TEXT DEFAULT '[]',
     raw_fields_json TEXT,
+    parser_version TEXT,
+    status TEXT DEFAULT 'pending',  -- pending, ignored
     gmail_message_id TEXT UNIQUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

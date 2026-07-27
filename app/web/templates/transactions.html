@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Transactions - Financial Email Tracker{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-neutral-900 mb-6">Transactions</h1>
+
+<form method="get" action="/transactions" class="card mb-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
+    <div>
+        <label class="block text-xs text-neutral-500 mb-1">Date From</label>
+        <input type="date" name="date_from" value="{{ filters.date_from }}" class="input">
+    </div>
+    <div>
+        <label class="block text-xs text-neutral-500 mb-1">Date To</label>
+        <input type="date" name="date_to" value="{{ filters.date_to }}" class="input">
+    </div>
+    <div>
+        <label class="block text-xs text-neutral-500 mb-1">Category</label>
+        <input type="text" name="category" value="{{ filters.category }}" class="input">
+    </div>
+    <div>
+        <label class="block text-xs text-neutral-500 mb-1">Type</label>
+        <input type="text" name="transaction_type" value="{{ filters.transaction_type }}" class="input">
+    </div>
+    <div>
+        <label class="block text-xs text-neutral-500 mb-1">Direction</label>
+        <select name="direction" class="input">
+            <option value="" {% if filters.direction == '' %}selected{% endif %}>Any</option>
+            <option value="in" {% if filters.direction == 'in' %}selected{% endif %}>In</option>
+            <option value="out" {% if filters.direction == 'out' %}selected{% endif %}>Out</option>
+            <option value="internal" {% if filters.direction == 'internal' %}selected{% endif %}>Internal</option>
+            <option value="unknown" {% if filters.direction == 'unknown' %}selected{% endif %}>Unknown</option>
+        </select>
+    </div>
+    <div>
+        <label class="block text-xs text-neutral-500 mb-1">Search</label>
+        <input type="text" name="search" value="{{ filters.search }}" class="input">
+    </div>
+    <div class="col-span-2 sm:col-span-3 lg:col-span-6 flex gap-2">
+        <button type="submit" class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700">Filter</button>
+        <a href="/transactions" class="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-100">Clear</a>
+    </div>
+</form>
+
+<div class="card p-0 overflow-x-auto">
+    <table class="min-w-full text-sm zebra-table">
+        <thead>
+            <tr class="text-left text-neutral-500 border-b border-neutral-200">
+                <th class="px-4 py-3 font-medium">Date</th>
+                <th class="px-4 py-3 font-medium">Counterparty</th>
+                <th class="px-4 py-3 font-medium">Description</th>
+                <th class="px-4 py-3 font-medium">Type</th>
+                <th class="px-4 py-3 font-medium">Direction</th>
+                <th class="px-4 py-3 font-medium text-right">Amount</th>
+                <th class="px-4 py-3 font-medium">Category</th>
+                <th class="px-4 py-3 font-medium">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr class="border-b border-neutral-100 hover:bg-neutral-50 cursor-pointer" onclick="window.location='/transactions/{{ item.id }}'">
+                <td class="px-4 py-3 whitespace-nowrap">{{ item.occurred_at }}</td>
+                <td class="px-4 py-3">{{ item.counterparty or '-' }}</td>
+                <td class="px-4 py-3">{{ item.description or '-' }}</td>
+                <td class="px-4 py-3">{{ item.transaction_type or '-' }}</td>
+                <td class="px-4 py-3">{{ item.direction }}</td>
+                <td class="px-4 py-3 text-right font-medium {% if item.direction == 'in' %}text-green-600{% elif item.direction == 'out' %}text-red-600{% else %}text-neutral-700{% endif %}">
+                    ฿{{ '{:,.2f}'.format(item.amount) }}
+                </td>
+                <td class="px-4 py-3">
+                    <span class="badge {% if item.category and item.category != 'Uncategorized' %}badge-income{% else %}badge-uncategorized{% endif %}">{{ item.category or 'Uncategorized' }}</span>
+                </td>
+                <td class="px-4 py-3">{{ item.parse_status }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="px-4 py-6 text-center text-neutral-500">No transactions found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% set qs_base = 'date_from=' ~ (filters.date_from|urlencode) ~ '&date_to=' ~ (filters.date_to|urlencode) ~ '&category=' ~ (filters.category|urlencode) ~ '&transaction_type=' ~ (filters.transaction_type|urlencode) ~ '&direction=' ~ (filters.direction|urlencode) ~ '&search=' ~ (filters.search|urlencode) ~ '&page_size=' ~ page_size %}
+<div class="flex items-center justify-between mt-4 text-sm">
+    <div class="text-neutral-500">Page {{ page }} of {{ total_pages }} ({{ total }} total)</div>
+    <div class="flex gap-2">
+        {% if page > 1 %}
+        <a href="/transactions?{{ qs_base }}&page={{ page - 1 }}" class="px-3 py-1.5 rounded-md border border-neutral-300 hover:bg-neutral-100">Prev</a>
+        {% else %}
+        <span class="px-3 py-1.5 rounded-md border border-neutral-200 text-neutral-400">Prev</span>
+        {% endif %}
+        {% if page < total_pages %}
+        <a href="/transactions?{{ qs_base }}&page={{ page + 1 }}" class="px-3 py-1.5 rounded-md border border-neutral-300 hover:bg-neutral-100">Next</a>
+        {% else %}
+        <span class="px-3 py-1.5 rounded-md border border-neutral-200 text-neutral-400">Next</span>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

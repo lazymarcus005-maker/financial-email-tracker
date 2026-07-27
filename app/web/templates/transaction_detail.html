@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Transaction #{{ t.id }} - Financial Email Tracker{% endblock %}
+
+{% block content %}
+<a href="/transactions" class="text-sm text-neutral-500 hover:text-neutral-900">&larr; Back to Transactions</a>
+
+<h1 class="text-xl font-semibold text-neutral-900 mt-2 mb-6">Transaction #{{ t.id }}</h1>
+
+{% if t.warnings %}
+<div class="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+    <div class="text-sm font-medium text-amber-800 mb-1">Warnings</div>
+    <ul class="list-disc list-inside text-sm text-amber-700">
+        {% for w in t.warnings %}
+        <li>{{ w }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<div class="card mb-6">
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+        <div>
+            <dt class="text-xs text-neutral-500">Transaction Type</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.transaction_type or '-' }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Direction</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.direction }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Status</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.status }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Occurred At</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.occurred_at }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Amount</dt>
+            <dd class="text-sm mt-0.5 font-medium {% if t.direction == 'in' %}text-green-600{% elif t.direction == 'out' %}text-red-600{% else %}text-neutral-900{% endif %}">฿{{ '{:,.2f}'.format(t.amount) }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Fee</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{% if t.fee is not none %}฿{{ '{:,.2f}'.format(t.fee) }}{% else %}-{% endif %}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Available Balance</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{% if t.available_balance is not none %}฿{{ '{:,.2f}'.format(t.available_balance) }}{% else %}-{% endif %}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Counterparty</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.counterparty or '-' }}</dd>
+        </div>
+        <div class="sm:col-span-2">
+            <dt class="text-xs text-neutral-500">Description</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.description or '-' }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Category</dt>
+            <dd class="text-sm mt-0.5"><span class="badge {% if t.category and t.category != 'Uncategorized' %}badge-income{% else %}badge-uncategorized{% endif %}">{{ t.category or 'Uncategorized' }}</span></dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Category Source</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.category_source or '-' }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Parse Status</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.parse_status }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Parse Confidence</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.parse_confidence if t.parse_confidence is not none else '-' }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Parser Version</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.parser_version or '-' }}</dd>
+        </div>
+    </dl>
+</div>
+
+<div class="card mb-6">
+    <h2 class="text-sm font-medium text-neutral-900 mb-3">Actions</h2>
+    <div class="flex flex-wrap items-end gap-3">
+        <div>
+            <label class="block text-xs text-neutral-500 mb-1">Category</label>
+            <input type="text" id="category-input" value="{{ t.category or '' }}" class="input">
+        </div>
+        <button class="px-3 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700" onclick="saveCategory({{ t.id }})">Save Category</button>
+
+        {% if t.status == 'ignored' %}
+        <button class="px-3 py-2 rounded-lg border border-neutral-300 text-sm font-medium hover:bg-neutral-100" onclick="toggleIgnore({{ t.id }}, false)">Unignore</button>
+        {% else %}
+        <button class="px-3 py-2 rounded-lg border border-neutral-300 text-sm font-medium hover:bg-neutral-100" onclick="toggleIgnore({{ t.id }}, true)">Ignore</button>
+        {% endif %}
+
+        <button class="px-3 py-2 rounded-lg border border-neutral-300 text-sm font-medium hover:bg-neutral-100" onclick="reparseTransaction({{ t.id }})">Reparse</button>
+    </div>
+</div>
+
+<div class="card">
+    <h2 class="text-sm font-medium text-neutral-900 mb-3">Raw Fields</h2>
+    {% if t.raw_fields %}
+    <table class="min-w-full text-sm zebra-table">
+        <tbody>
+            {% for key, value in t.raw_fields.items() %}
+            <tr class="border-b border-neutral-100">
+                <td class="px-3 py-2 font-medium text-neutral-500 whitespace-nowrap">{{ key }}</td>
+                <td class="px-3 py-2 text-neutral-900 break-all">{{ value }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-sm text-neutral-500">No raw fields.</p>
+    {% endif %}
+</div>
+
+<script>
+    function saveCategory(id) {
+        const value = document.getElementById('category-input').value;
+        apiCall('/api/transactions/' + id, 'PATCH', { category: value }).then(() => location.reload());
+    }
+    function toggleIgnore(id, ignore) {
+        apiCall('/api/transactions/' + id, 'PATCH', { ignore: ignore }).then(() => location.reload());
+    }
+    function reparseTransaction(id) {
+        apiCall('/api/reparse/' + id, 'POST').then(() => location.reload());
+    }
+</script>
+{% endblock %}

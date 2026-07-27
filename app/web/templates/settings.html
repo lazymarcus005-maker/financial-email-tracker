@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Financial Email Tracker{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-semibold text-neutral-900 mb-6">Settings</h1>
+
+<div class="card">
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+        <div>
+            <dt class="text-xs text-neutral-500">Gmail Query</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5 break-all">{{ settings.gmail_query }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Database Path</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5 break-all">{{ settings.database_path }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Schedule</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{{ settings.schedule|join(', ') if settings.schedule else '-' }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Timezone</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{{ settings.timezone }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">AI Enabled</dt>
+            <dd class="text-sm mt-0.5"><span class="badge {% if settings.ai_enabled %}badge-income{% else %}badge-uncategorized{% endif %}">{{ 'Yes' if settings.ai_enabled else 'No' }}</span></dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Ollama Base URL</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5 break-all">{{ settings.ollama_base_url or '-' }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Ollama Model</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{{ settings.ollama_model or '-' }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Parser Version</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{{ settings.parser_version }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">LINE Configured</dt>
+            <dd class="text-sm mt-0.5"><span class="badge {% if settings.line_configured %}badge-income{% else %}badge-uncategorized{% endif %}">{{ 'Yes' if settings.line_configured else 'No' }}</span></dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">Log Level</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5">{{ settings.log_level }}</dd>
+        </div>
+    </dl>
+</div>
+{% endblock %}
