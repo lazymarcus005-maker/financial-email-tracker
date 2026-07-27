@@ -95,6 +95,7 @@
         {% endif %}
 
         <button class="px-3 py-2 rounded-lg border border-neutral-300 text-sm font-medium hover:bg-neutral-100" onclick="reparseTransaction({{ t.id }})">Reparse</button>
+        <button class="px-3 py-2 rounded-lg border border-red-300 text-sm font-medium text-red-700 hover:bg-red-50" onclick="deleteTransaction({{ t.id }})">Delete</button>
     </div>
 </div>
 
@@ -126,6 +127,10 @@
     }
     function reparseTransaction(id) {
         apiCall('/api/reparse/' + id, 'POST').then(() => location.reload());
+    }
+    function deleteTransaction(id) {
+        if (!confirm('Delete this transaction?')) return;
+        apiCall('/api/transactions/' + id, 'DELETE').then(() => window.location = '/transactions');
     }
 </script>
 {% endblock %}

@@ -217,6 +217,21 @@ def test_update_missing_transaction_returns_404(client):
 
 
 @pytest.mark.asyncio
+async def test_delete_transaction(client, db_connection):
+    tx_id = await _insert_transaction(db_connection)
+
+    resp = client.delete(f"/api/transactions/{tx_id}")
+    assert resp.status_code == 204
+
+    cursor = await db_connection.execute("SELECT COUNT(*) AS n FROM transactions WHERE id = ?", (tx_id,))
+    row = await cursor.fetchone()
+    await cursor.close()
+    assert row["n"] == 0
+
+    assert client.delete("/api/transactions/999999").status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_transactions_page_loads(client, db_connection):
     await _insert_transaction(db_connection)
     resp = client.get("/transactions")
@@ -275,6 +290,21 @@ async def test_list_unknown_and_ignore(client, db_connection):
     assert ignore_resp.json()["status"] == "ignored"
 
     assert client.post("/api/unknown/999999/ignore").status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_unknown(client, db_connection):
+    unknown_id = await _insert_unknown(db_connection)
+
+    resp = client.delete(f"/api/unknown/{unknown_id}")
+    assert resp.status_code == 204
+
+    cursor = await db_connection.execute("SELECT COUNT(*) AS n FROM unknown_patterns WHERE id = ?", (unknown_id,))
+    row = await cursor.fetchone()
+    await cursor.close()
+    assert row["n"] == 0
+
+    assert client.delete("/api/unknown/999999").status_code == 404
 
 
 @pytest.mark.asyncio

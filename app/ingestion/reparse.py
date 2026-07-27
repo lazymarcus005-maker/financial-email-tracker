@@ -79,7 +79,7 @@ async def reparse_transaction(
             transaction.counterparty,
             transaction.description,
             category,
-            category_source.value,
+            category_source,
             transaction.parse_status,
             transaction.parse_confidence,
             json.dumps(transaction.parse_warnings, ensure_ascii=False),
@@ -135,7 +135,7 @@ async def reparse_unknown(
         logger.info(f"Reparse of unknown pattern {unknown_id} now succeeds but transaction already exists")
     else:
         category, category_source = await engine.categorize(db, persistence.transaction_to_dict(transaction))
-        await persistence.insert_transaction(db, message, transaction, category, category_source.value)
+        await persistence.insert_transaction(db, message, transaction, category, category_source)
 
     await db.execute("DELETE FROM unknown_patterns WHERE id = ?", (unknown_id,))
     await db.commit()

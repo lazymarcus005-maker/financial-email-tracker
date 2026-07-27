@@ -63,26 +63,26 @@ class CategoryEngine:
         db: aiosqlite.Connection,
         transaction: dict,
         manual_override: str | None = None,
-    ) -> tuple[str, CategorySource]:
+    ) -> tuple[str, str]:
         """Categorize a transaction. Returns (category, source)."""
         if manual_override:
-            return manual_override, CategorySource.MANUAL
+            return manual_override, CategorySource.MANUAL.value
 
         counterparty = transaction.get("counterparty")
 
         history_category = await history.lookup(db, counterparty)
         if history_category:
-            return history_category, CategorySource.HISTORY
+            return history_category, CategorySource.HISTORY.value
 
         rule_category = self._match_rule(counterparty)
         if rule_category:
-            return rule_category, CategorySource.RULE
+            return rule_category, CategorySource.RULE.value
 
         if self.ai_enabled:
             ai_category = await ai.categorize(
                 transaction, base_url=self.ollama_base_url, model=self.ollama_model
             )
             if ai_category:
-                return ai_category, CategorySource.AI
+                return ai_category, self.ollama_model
 
-        return "Uncategorized", CategorySource.UNCATEGORIZED
+        return "Uncategorized", CategorySource.UNCATEGORIZED.value

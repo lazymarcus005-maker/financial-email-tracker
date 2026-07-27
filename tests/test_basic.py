@@ -30,7 +30,7 @@ def test_category_engine_manual_override(db_connection):
         )
     )
     assert category == "Manual Shopping"
-    assert source.value == "manual"
+    assert source == "manual"
 
 
 def test_category_engine_rule_based(db_connection):
@@ -40,7 +40,7 @@ def test_category_engine_rule_based(db_connection):
         engine.categorize(db_connection, {"counterparty": "Shopee Mall"})
     )
     assert category == "Shopping"
-    assert source.value == "rule"
+    assert source == "rule"
 
 
 if __name__ == "__main__":

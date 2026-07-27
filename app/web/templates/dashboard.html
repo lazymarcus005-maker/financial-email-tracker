@@ -43,4 +43,37 @@
         <div class="text-2xl font-semibold text-neutral-900 mt-1">{{ stats.last_sync or 'Never' }}</div>
     </div>
 </div>
+
+<div class="card">
+    <div class="flex items-center justify-between gap-3 mb-5">
+        <h2 class="text-sm font-medium text-neutral-900">Expense</h2>
+        <div class="flex rounded-lg border border-neutral-300 overflow-hidden text-sm">
+            {% for option in [7, 14, 30] %}
+            <a
+                href="/?days={{ option }}"
+                class="px-3 py-1.5 {% if expense_window_days == option %}bg-neutral-900 text-white{% else %}text-neutral-700 hover:bg-neutral-100{% endif %}"
+            >{{ option }}</a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="h-64 flex items-end gap-2 border-b border-neutral-200">
+        {% for item in expense_days %}
+        {% set pct = (item.total / max_expense * 100) if max_expense else 0 %}
+        <div class="flex-1 min-w-0 h-full flex flex-col justify-end items-center gap-2">
+            <div class="text-[11px] text-neutral-500 whitespace-nowrap">฿{{ '{:,.0f}'.format(item.total) }}</div>
+            <div
+                class="w-full max-w-10 rounded-t-md bg-red-500 hover:bg-red-600"
+                style="height: {{ pct if pct > 3 else (3 if item.total > 0 else 0) }}%;"
+                title="{{ item.day }}: ฿{{ '{:,.2f}'.format(item.total) }}"
+            ></div>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="mt-2 flex gap-2 text-[11px] text-neutral-500">
+        {% for item in expense_days %}
+        <div class="flex-1 min-w-0 text-center truncate">{{ item.day[5:] }}</div>
+        {% endfor %}
+    </div>
+</div>
 {% endblock %}

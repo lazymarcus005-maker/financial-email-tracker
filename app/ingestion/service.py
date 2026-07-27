@@ -57,7 +57,7 @@ async def run_ingestion(
             category, category_source = await engine.categorize(
                 db, persistence.transaction_to_dict(transaction)
             )
-            await persistence.insert_transaction(db, message, transaction, category, category_source.value)
+            await persistence.insert_transaction(db, message, transaction, category, category_source)
             await persistence.clear_unknown(db, message.gmail_message_id)
             inserted += 1
 

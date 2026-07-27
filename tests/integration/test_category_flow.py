@@ -80,7 +80,7 @@ async def test_ai_fallback_used_when_enabled_and_no_rule_or_history(
     reader = fake_reader([message])
 
     await run_ingestion(
-        "query", reader=reader, registry=ParserRegistry(), engine=CategoryEngine(ai_enabled=True)
+        "query", reader=reader, registry=ParserRegistry(), engine=CategoryEngine(ai_enabled=True, ollama_model="qwen3:1.7b")
     )
 
     db = await database.get_connection()
@@ -88,7 +88,7 @@ async def test_ai_fallback_used_when_enabled_and_no_rule_or_history(
     row = await cursor.fetchone()
     await db.close()
     assert row["category"] == "Food"
-    assert row["category_source"] == "ai"
+    assert row["category_source"] == "qwen3:1.7b"
 
 
 def test_manual_override_saves_via_api_and_is_reused_via_history(client, make_message, fake_reader):

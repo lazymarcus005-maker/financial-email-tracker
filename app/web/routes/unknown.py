@@ -38,6 +38,15 @@ async def ignore_unknown(unknown_id: int, db: aiosqlite.Connection = Depends(get
     return await queries.get_unknown(db, unknown_id)
 
 
+@router.delete("/unknown/{unknown_id}", status_code=204)
+async def delete_unknown(unknown_id: int, db: aiosqlite.Connection = Depends(get_db)):
+    row = await queries.get_unknown(db, unknown_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Unknown pattern not found")
+    await queries.delete_unknown(db, unknown_id)
+    return None
+
+
 @router.post("/unknown/{unknown_id}/reparse")
 async def reparse(
     unknown_id: int,

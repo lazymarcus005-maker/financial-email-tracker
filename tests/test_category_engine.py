@@ -16,7 +16,7 @@ async def test_manual_override_wins_over_everything(db_connection):
     )
 
     assert category == "Manual Category"
-    assert source.value == "manual"
+    assert source == "manual"
 
 
 @pytest.mark.asyncio
@@ -28,7 +28,7 @@ async def test_history_wins_over_rule(db_connection):
     category, source = await engine.categorize(db_connection, {"counterparty": "Shopee"})
 
     assert category == "Learned Category"
-    assert source.value == "history"
+    assert source == "history"
 
 
 @pytest.mark.asyncio
@@ -38,7 +38,7 @@ async def test_rule_based_when_no_history(db_connection):
     category, source = await engine.categorize(db_connection, {"counterparty": "Shopee Mall"})
 
     assert category == "Shopping"
-    assert source.value == "rule"
+    assert source == "rule"
 
 
 @pytest.mark.asyncio
@@ -48,7 +48,7 @@ async def test_uncategorized_when_nothing_matches(db_connection):
     category, source = await engine.categorize(db_connection, {"counterparty": "Some Random Merchant"})
 
     assert category == "Uncategorized"
-    assert source.value == "uncategorized"
+    assert source == "uncategorized"
 
 
 @pytest.mark.asyncio
@@ -59,12 +59,12 @@ async def test_ai_used_when_enabled_and_no_history_or_rule_match(db_connection, 
         return "Food"
 
     monkeypatch.setattr(ai_module, "categorize", fake_categorize)
-    engine = CategoryEngine(ai_enabled=True)
+    engine = CategoryEngine(ai_enabled=True, ollama_model="qwen3:1.7b")
 
     category, source = await engine.categorize(db_connection, {"counterparty": "Some Random Merchant"})
 
     assert category == "Food"
-    assert source.value == "ai"
+    assert source == "qwen3:1.7b"
 
 
 @pytest.mark.asyncio
@@ -80,7 +80,7 @@ async def test_falls_back_to_uncategorized_when_ai_fails(db_connection, monkeypa
     category, source = await engine.categorize(db_connection, {"counterparty": "Some Random Merchant"})
 
     assert category == "Uncategorized"
-    assert source.value == "uncategorized"
+    assert source == "uncategorized"
 
 
 @pytest.mark.asyncio
@@ -96,7 +96,7 @@ async def test_ai_not_called_when_disabled(db_connection, monkeypatch):
     category, source = await engine.categorize(db_connection, {"counterparty": "Some Random Merchant"})
 
     assert category == "Uncategorized"
-    assert source.value == "uncategorized"
+    assert source == "uncategorized"
 
 
 @pytest.mark.asyncio
@@ -106,7 +106,7 @@ async def test_no_counterparty_skips_history_and_rule(db_connection):
     category, source = await engine.categorize(db_connection, {"counterparty": None})
 
     assert category == "Uncategorized"
-    assert source.value == "uncategorized"
+    assert source == "uncategorized"
 
 
 # ---- app.classification.history -------------------------------------------------

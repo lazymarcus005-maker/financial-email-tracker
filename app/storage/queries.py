@@ -2,7 +2,7 @@
 
 import json
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import aiosqlite
 
@@ -20,6 +20,10 @@ def _row_to_transaction(row: aiosqlite.Row) -> dict:
     data = dict(row)
     data["raw_fields"] = json.loads(data.pop("raw_fields_json") or "{}")
     data["warnings"] = json.loads(data.pop("warnings_json") or "[]")
+    occurred_at = data.get("occurred_at") or ""
+    normalized = str(occurred_at).replace("T", " ")
+    data["occurred_date"] = normalized[:10] if normalized else ""
+    data["occurred_time"] = normalized[11:16] if len(normalized) >= 16 else ""
     return data
 
 
@@ -118,6 +122,11 @@ async def set_transaction_ignored(db: aiosqlite.Connection, transaction_id: int,
         "UPDATE transactions SET parse_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         (parse_status, transaction_id),
     )
+    await db.commit()
+
+
+async def delete_transaction(db: aiosqlite.Connection, transaction_id: int) -> None:
+    await db.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
     await db.commit()
 
 
@@ -293,6 +302,36 @@ async def get_dashboard_stats(db: aiosqlite.Connection) -> dict:
         "unknown_parser": unknown_row["n"],
         "last_sync": last_sync,
     }
+
+
+async def get_expense_by_day(db: aiosqlite.Connection, days: int = 7) -> list[dict]:
+    """Return daily expense totals for the last `days`, including zero-total days."""
+    days = days if days in (7, 14, 30) else 7
+    end_day = date.today()
+    start_day = end_day - timedelta(days=days - 1)
+
+    cursor = await db.execute(
+        """
+        SELECT date(occurred_at) AS day, COALESCE(SUM(amount), 0) AS total
+        FROM transactions
+        WHERE direction = 'out'
+          AND parse_status != 'ignored'
+          AND date(occurred_at) BETWEEN ? AND ?
+        GROUP BY date(occurred_at)
+        """,
+        (start_day.isoformat(), end_day.isoformat()),
+    )
+    rows = await cursor.fetchall()
+    await cursor.close()
+
+    totals_by_day = {row["day"]: float(row["total"] or 0) for row in rows}
+    return [
+        {
+            "day": (start_day + timedelta(days=offset)).isoformat(),
+            "total": totals_by_day.get((start_day + timedelta(days=offset)).isoformat(), 0.0),
+        }
+        for offset in range(days)
+    ]
 
 
 async def get_daily_summary_data(db: aiosqlite.Connection, day: str | None = None) -> dict:

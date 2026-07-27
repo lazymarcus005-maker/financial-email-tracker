@@ -80,6 +80,18 @@ async def update_transaction(
     return await queries.get_transaction(db, transaction_id)
 
 
+@router.delete("/transactions/{transaction_id}", status_code=204)
+async def delete_transaction(
+    transaction_id: int,
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    transaction = await queries.get_transaction(db, transaction_id)
+    if transaction is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    await queries.delete_transaction(db, transaction_id)
+    return None
+
+
 @router.post("/reparse/{transaction_id}")
 async def reparse(
     transaction_id: int,

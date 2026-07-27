@@ -36,7 +36,7 @@ any scalar setting (see `app/config.py`).
    and `logs/` before starting the app so `token.json` remains readable and
    refreshable after deploy.
 5. Set `GMAIL_QUERY` in `config.yaml` to scope which emails are ingested,
-   e.g. `from:(KPLUS@kasikornbank.com) newer_than:2d`.
+   e.g. `from:(KPLUS@kasikornbank.com) newer_than:90d`.
 
 Token refresh is automatic (`app/gmail/authorize.py` refreshes an expired
 token using the stored refresh token). If refresh ever fails (token
