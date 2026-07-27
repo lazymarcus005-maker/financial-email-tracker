@@ -46,6 +46,13 @@ async def run_ingestion(
                 failed += 1
                 continue
 
+            if await persistence.find_duplicate_transaction(db, transaction):
+                logger.info(
+                    f"Skipping duplicate transaction (reference/fingerprint match) for message {message.gmail_message_id}"
+                )
+                duplicates += 1
+                continue
+
             category, category_source = await engine.categorize(
                 db, persistence.transaction_to_dict(transaction)
             )

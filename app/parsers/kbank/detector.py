@@ -1,11 +1,18 @@
 """KBank Section Detector - locate the primary Thai or English transaction-detail block."""
 
+import logging
 import re
 from dataclasses import dataclass
 
+from app.logging_config import log_event
 from app.parsers.kbank.extractor import is_label_line
 
-THAI_CHAR_RE = re.compile(r"[฀-๿]")
+logger = logging.getLogger(__name__)
+
+# Thai consonants, vowels, and tone marks - deliberately excludes the baht sign
+# (u0E3F) and Thai digits (u0E50-u0E59), which can appear in an otherwise-English
+# amount line (e.g. "Amount : ฿1,234.56") and would wrongly flag it as Thai.
+THAI_CHAR_RE = re.compile(r"[ก-ฺเ-๎]")
 
 
 @dataclass
@@ -46,6 +53,9 @@ def detect_section(text: str) -> DetectionResult:
 
     if current_lines:
         segments.append((current_lang, current_lines))
+
+    if not any(lang == "th" for lang, _ in segments):
+        log_event(logger, "thai_section_not_found", level="debug")
 
     if not segments:
         language = "th" if THAI_CHAR_RE.search(text) else "en"

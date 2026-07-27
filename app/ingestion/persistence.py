@@ -25,19 +25,50 @@ async def already_ingested(db, gmail_message_id: str) -> bool:
     return row is not None
 
 
+async def find_duplicate_transaction(db, transaction: Transaction) -> bool:
+    """Detect the same transaction arriving under a different gmail_message_id
+    (e.g. a bank resend/forward). Prefers the bank's own reference number when
+    the parser found one; otherwise falls back to a fingerprint of
+    (type, direction, amount, occurred_at, counterparty).
+    """
+    if transaction.transaction_id:
+        cursor = await db.execute(
+            "SELECT 1 FROM transactions WHERE transaction_id = ?", (transaction.transaction_id,)
+        )
+    else:
+        cursor = await db.execute(
+            """
+            SELECT 1 FROM transactions
+            WHERE transaction_type = ? AND direction = ? AND amount = ?
+              AND occurred_at = ? AND counterparty IS ?
+            """,
+            (
+                transaction.transaction_type,
+                transaction.direction,
+                transaction.amount,
+                transaction.occurred_at,
+                transaction.counterparty,
+            ),
+        )
+    row = await cursor.fetchone()
+    await cursor.close()
+    return row is not None
+
+
 async def insert_transaction(
     db, message: EmailMessage, transaction: Transaction, category: str, category_source: str
 ) -> None:
     await db.execute(
         """
         INSERT INTO transactions (
-            transaction_type, direction, status, occurred_at, amount, fee,
+            transaction_id, transaction_type, direction, status, occurred_at, amount, fee,
             available_balance, counterparty, description, category, category_source,
             parser_version, parse_status, parse_confidence, warnings_json,
             raw_fields_json, gmail_message_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
+            transaction.transaction_id,
             transaction.transaction_type,
             transaction.direction,
             transaction.status,

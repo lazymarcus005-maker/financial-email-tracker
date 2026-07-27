@@ -1,6 +1,6 @@
 # Financial Email Tracker - Requirements
+# Runtime: Python 3.12 (see Dockerfile)
 
-python==3.12
 fastapi==0.104.0
 uvicorn[standard]==0.24.0
 

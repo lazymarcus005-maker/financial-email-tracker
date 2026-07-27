@@ -48,12 +48,13 @@ class KBankParser(BaseParser):
                 amount=canonical.amount or 0.0,
                 fee=canonical.fee or 0.0,
                 available_balance=canonical.balance,
-                counterparty=canonical.counterparty,
+                counterparty=canonical.counterparty or "Unknown Counterparty",
                 description=subject or None,
                 parse_status=parse_status,
                 parse_confidence=parse_confidence,
                 parse_warnings=warnings,
                 raw_fields=canonical.raw_fields,
+                transaction_id=canonical.reference,
             )
         except Exception:
             logger.exception("KBankParser: unexpected error while parsing email")

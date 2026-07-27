@@ -11,7 +11,8 @@ from app.parsers.kbank.aliases import to_canonical
 
 logger = logging.getLogger(__name__)
 
-_AMOUNT_RE = re.compile(r"[-+]?[\d,]+\.?\d*")
+_AMOUNT_RE = re.compile(r"(?P<number>[-+]?[\d,]+\.?\d*)\s*(?P<suffix>[kKmM])?")
+_AMOUNT_SUFFIX_MULTIPLIERS = {"k": 1_000, "m": 1_000_000}
 
 # Thai Buddhist-era month abbreviations seen in KBank emails, e.g. "26 ม.ค. 2568"
 _THAI_MONTHS = {
@@ -43,13 +44,18 @@ class CanonicalFields:
 
 
 def _parse_amount(raw: str) -> float | None:
+    """Parse an amount, tolerating currency symbols/codes, commas, and "1.5k"-style shorthand."""
     match = _AMOUNT_RE.search(raw.replace(",", ""))
-    if not match:
+    if not match or not match.group("number"):
         return None
     try:
-        return float(match.group())
+        value = float(match.group("number"))
     except ValueError:
         return None
+    suffix = match.group("suffix")
+    if suffix:
+        value *= _AMOUNT_SUFFIX_MULTIPLIERS[suffix.lower()]
+    return value
 
 
 def _thai_year_to_gregorian(year: int) -> int:

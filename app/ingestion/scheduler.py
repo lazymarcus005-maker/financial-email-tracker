@@ -1,7 +1,6 @@
 """Cron scheduler - ingests new emails on a schedule and sends the daily LINE summary."""
 
 import asyncio
-import json
 import logging
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -11,6 +10,7 @@ from app.classification.engine import CategoryEngine
 from app.config import Settings, get_settings
 from app.ingestion.service import run_ingestion
 from app.integrations.line import format_daily_summary, send_message
+from app.logging_config import log_event
 from app.storage.database import get_connection
 from app.storage.queries import get_daily_summary_data
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def _log_event(event: str, **fields) -> None:
     """Emit a structured JSON log line for a scheduler lifecycle event."""
-    logger.info(json.dumps({"event": event, **fields}, default=str))
+    log_event(logger, event, **fields)
 
 
 def _build_engine(settings: Settings) -> CategoryEngine:
@@ -109,8 +109,11 @@ def start_scheduler(settings: Settings | None = None) -> BackgroundScheduler:
 if __name__ == "__main__":
     import time as time_module
 
-    logging.basicConfig(level=logging.INFO)
-    sched = start_scheduler()
+    from app.logging_config import configure_logging
+
+    _settings = get_settings()
+    configure_logging(level=_settings.LOG_LEVEL, fmt=_settings.LOG_FORMAT)
+    sched = start_scheduler(_settings)
     try:
         while True:
             time_module.sleep(60)

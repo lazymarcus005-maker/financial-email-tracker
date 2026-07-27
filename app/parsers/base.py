@@ -21,7 +21,8 @@ class Transaction:
     parse_confidence: float = 1.0  # 0.0 - 1.0
     parse_warnings: list[str] = None
     raw_fields: dict = None
-    
+    transaction_id: str | None = None  # bank's own reference/transaction number, if found
+
     def __post_init__(self):
         if self.parse_warnings is None:
             self.parse_warnings = []
