@@ -1,0 +1,121 @@
+"""Tests for app.ingestion.service."""
+
+import asyncio
+from datetime import datetime
+
+import pytest
+
+from app.gmail import EmailMessage
+from app.ingestion.service import run_ingestion
+from app.parsers.base import Transaction
+from app.storage import database
+
+
+class FakeReader:
+    def __init__(self, messages):
+        self._messages = messages
+
+    def read(self, query, max_results=100):
+        return self._messages
+
+
+class FakeRegistry:
+    def __init__(self, transaction_by_sender):
+        self._transaction_by_sender = transaction_by_sender
+
+    def parse(self, email_text, sender, subject=""):
+        return self._transaction_by_sender.get(sender)
+
+
+def _make_message(message_id, sender="notify@kasikornbank.com"):
+    return EmailMessage(
+        gmail_message_id=message_id,
+        gmail_thread_id=f"thread-{message_id}",
+        sender=sender,
+        subject="K PLUS: Transfer Successful",
+        received_at=datetime(2025, 1, 26, 14, 32),
+        body_text="Transaction Date: 26/01/2025\nAmount: 100.00 THB",
+    )
+
+
+def _make_transaction():
+    return Transaction(
+        transaction_type="bank_transfer",
+        direction="out",
+        status="success",
+        occurred_at="2025-01-26T14:32",
+        amount=100.0,
+        parse_status="complete",
+        parse_confidence=1.0,
+        raw_fields={"Amount": "100.00 THB"},
+    )
+
+
+@pytest.fixture
+def temp_db(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    monkeypatch.setattr(database, "DATABASE_PATH", db_path)
+    asyncio.run(database.init_db())
+    return db_path
+
+
+@pytest.mark.asyncio
+async def test_inserts_new_transaction(temp_db):
+    message = _make_message("msg-1")
+    reader = FakeReader([message])
+    registry = FakeRegistry({message.sender: _make_transaction()})
+
+    summary = await run_ingestion("query", reader=reader, registry=registry)
+
+    assert summary == {"emails_checked": 1, "inserted": 1, "duplicates": 0, "failed": 0}
+
+    db = await database.get_connection()
+    cursor = await db.execute("SELECT gmail_message_id, amount FROM transactions")
+    row = await cursor.fetchone()
+    await db.close()
+    assert row["gmail_message_id"] == "msg-1"
+    assert row["amount"] == 100.0
+
+
+@pytest.mark.asyncio
+async def test_dedups_already_ingested_message(temp_db):
+    message = _make_message("msg-2")
+    reader = FakeReader([message])
+    registry = FakeRegistry({message.sender: _make_transaction()})
+
+    await run_ingestion("query", reader=reader, registry=registry)
+    summary = await run_ingestion("query", reader=reader, registry=registry)
+
+    assert summary == {"emails_checked": 1, "inserted": 0, "duplicates": 1, "failed": 0}
+
+
+@pytest.mark.asyncio
+async def test_logs_unparseable_email_as_unknown(temp_db):
+    message = _make_message("msg-3")
+    reader = FakeReader([message])
+    registry = FakeRegistry({})  # no transaction registered -> parse() returns None
+
+    summary = await run_ingestion("query", reader=reader, registry=registry)
+
+    assert summary == {"emails_checked": 1, "inserted": 0, "duplicates": 0, "failed": 1}
+
+    db = await database.get_connection()
+    cursor = await db.execute("SELECT gmail_message_id FROM unknown_patterns")
+    row = await cursor.fetchone()
+    await db.close()
+    assert row["gmail_message_id"] == "msg-3"
+
+
+@pytest.mark.asyncio
+async def test_records_ingestion_run(temp_db):
+    message = _make_message("msg-4")
+    reader = FakeReader([message])
+    registry = FakeRegistry({message.sender: _make_transaction()})
+
+    await run_ingestion("query", reader=reader, registry=registry)
+
+    db = await database.get_connection()
+    cursor = await db.execute("SELECT emails_checked, inserted, duplicates, failed FROM ingestion_runs")
+    row = await cursor.fetchone()
+    await db.close()
+    assert dict(row) == {"emails_checked": 1, "inserted": 1, "duplicates": 0, "failed": 0}

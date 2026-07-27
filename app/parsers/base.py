@@ -38,6 +38,6 @@ class BaseParser(ABC):
         pass
     
     @abstractmethod
-    def parse(self, email_text: str) -> Transaction | None:
+    def parse(self, email_text: str, subject: str = "") -> Transaction | None:
         """Parse email, return Transaction or None if failed."""
         pass

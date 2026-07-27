@@ -1,0 +1,67 @@
+"""Gmail OAuth2 authorization - obtain and refresh credentials, persist token.json."""
+
+import logging
+from pathlib import Path
+
+from google.auth.exceptions import RefreshError
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+
+logger = logging.getLogger(__name__)
+
+SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+
+DEFAULT_CREDENTIALS_PATH = Path("secrets/credentials.json")
+DEFAULT_TOKEN_PATH = Path("secrets/token.json")
+
+
+def get_credentials(
+    credentials_path: Path | str = DEFAULT_CREDENTIALS_PATH,
+    token_path: Path | str = DEFAULT_TOKEN_PATH,
+) -> Credentials:
+    """Return valid OAuth2 credentials, refreshing or running the auth flow as needed."""
+    credentials_path = Path(credentials_path)
+    token_path = Path(token_path)
+
+    creds: Credentials | None = None
+
+    if token_path.exists():
+        creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+
+    if creds and creds.valid:
+        return creds
+
+    if creds and creds.expired and creds.refresh_token:
+        try:
+            logger.info("Refreshing expired Gmail OAuth token")
+            creds.refresh(Request())
+            _save_token(creds, token_path)
+            return creds
+        except RefreshError:
+            logger.warning("Token refresh failed, falling back to full OAuth flow")
+            creds = None
+
+    if not credentials_path.exists():
+        raise FileNotFoundError(
+            f"Gmail OAuth client credentials not found at {credentials_path}. "
+            "Download it from Google Cloud Console and save it there."
+        )
+
+    logger.info("Starting Gmail OAuth2 authorization flow")
+    flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), SCOPES)
+    creds = flow.run_local_server(port=0)
+    _save_token(creds, token_path)
+    return creds
+
+
+def _save_token(creds: Credentials, token_path: Path) -> None:
+    token_path.parent.mkdir(parents=True, exist_ok=True)
+    token_path.write_text(creds.to_json())
+    logger.info(f"Saved Gmail OAuth token to {token_path}")
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    get_credentials()
+    logger.info("Gmail authorization complete.")
