@@ -41,6 +41,35 @@ def test_maps_thai_amount_fields():
     assert canonical.balance == 25430.50
 
 
+def test_maps_kbank_labels_with_currency_units_and_reference_punctuation():
+    raw_fields = [
+        ("Transaction Date", "27/07/2026"),
+        ("Transaction Time", "20:30"),
+        ("Amount (Baht)", "1,234.56"),
+        ("Fee (THB)", "10.00"),
+        ("Available Balance (Baht)", "9,876.54"),
+        ("Reference No.", "ABC123"),
+    ]
+    canonical = map_fields(raw_fields)
+
+    assert canonical.transaction_date == "2026-07-27"
+    assert canonical.transaction_time == "20:30"
+    assert canonical.amount == 1234.56
+    assert canonical.fee == 10.00
+    assert canonical.balance == 9876.54
+    assert canonical.reference == "ABC123"
+
+
+def test_maps_payment_and_transfer_amount_aliases():
+    payment = map_fields([("Payment Amount (Baht)", "500.00")])
+    transfer = map_fields([("Transfer Amount (THB)", "600.00")])
+    thai_bill = map_fields([("ยอดเงินที่ชำระ (บาท)", "700.00")])
+
+    assert payment.amount == 500.00
+    assert transfer.amount == 600.00
+    assert thai_bill.amount == 700.00
+
+
 def test_unrecognized_label_is_kept_in_raw_fields_only():
     raw_fields = [("Some Unknown Label", "some value")]
     canonical = map_fields(raw_fields)

@@ -32,6 +32,9 @@ any scalar setting (see `app/config.py`).
 4. Both files are picked up by the container via the `./secrets:/app/secrets`
    bind mount in `docker-compose.yml`. `secrets/` is gitignored - never
    commit either file.
+   The container entrypoint fixes ownership of mounted `data/`, `secrets/`,
+   and `logs/` before starting the app so `token.json` remains readable and
+   refreshable after deploy.
 5. Set `GMAIL_QUERY` in `config.yaml` to scope which emails are ingested,
    e.g. `from:(KPLUS@kasikornbank.com) newer_than:2d`.
 
