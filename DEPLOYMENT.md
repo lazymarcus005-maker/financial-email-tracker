@@ -58,8 +58,6 @@ revoked), delete `secrets/token.json` and repeat step 3.
 
 ## 4. Docker Compose deploy
 
-```bash
-docker compose up -d --build
 ```
 
 - App listens on `:8000`, backed by the `finance_data` named volume for

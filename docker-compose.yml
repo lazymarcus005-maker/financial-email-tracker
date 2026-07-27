@@ -32,8 +32,6 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: finance-ollama
-    ports:
-      - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     healthcheck:
