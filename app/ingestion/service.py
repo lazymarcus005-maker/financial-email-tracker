@@ -1,6 +1,7 @@
 """Ingestion Service - read Gmail, parse transactions, dedup, and persist to SQLite."""
 
 import logging
+import threading
 import time
 
 from app.classification.engine import CategoryEngine
@@ -10,6 +11,12 @@ from app.parsers.registry import ParserRegistry
 from app.storage.database import get_connection
 
 logger = logging.getLogger(__name__)
+
+_INGESTION_LOCK = threading.Lock()
+
+
+class IngestionAlreadyRunningError(RuntimeError):
+    """Raised when another ingestion run is already active in this process."""
 
 
 async def run_ingestion(
@@ -22,63 +29,72 @@ async def run_ingestion(
 
     Returns a summary dict with counts: emails_checked, inserted, duplicates, failed.
     """
+    if not _INGESTION_LOCK.acquire(blocking=False):
+        raise IngestionAlreadyRunningError("An ingestion run is already in progress")
+
     started_at = time.monotonic()
     reader = reader or GmailReader()
     registry = registry or ParserRegistry()
     engine = engine or CategoryEngine()
 
-    messages = reader.read(query)
-
-    inserted = duplicates = failed = 0
-    db = await get_connection()
-
     try:
-        for message in messages:
-            if await persistence.already_ingested(db, message.gmail_message_id):
-                logger.info(f"Skipping duplicate message {message.gmail_message_id}")
-                duplicates += 1
-                continue
+        messages = reader.read(query)
 
-            transaction = registry.parse(message.body_text, message.sender, subject=message.subject)
+        inserted = duplicates = failed = 0
+        db = await get_connection()
 
-            if transaction is None or transaction.parse_status == "failed":
-                await persistence.insert_unknown(db, message, transaction)
-                failed += 1
-                continue
+        try:
+            for message in messages:
+                if await persistence.already_ingested(db, message.gmail_message_id):
+                    logger.info(f"Skipping duplicate message {message.gmail_message_id}")
+                    duplicates += 1
+                    continue
 
-            if await persistence.find_duplicate_transaction(db, transaction):
-                logger.info(
-                    f"Skipping duplicate transaction (reference/fingerprint match) for message {message.gmail_message_id}"
+                transaction = registry.parse(message.body_text, message.sender, subject=message.subject)
+
+                if transaction is None or transaction.parse_status == "failed":
+                    await persistence.insert_unknown(db, message, transaction)
+                    await db.commit()
+                    failed += 1
+                    continue
+
+                if await persistence.find_duplicate_transaction(db, transaction):
+                    logger.info(
+                        f"Skipping duplicate transaction (reference/fingerprint match) for message {message.gmail_message_id}"
+                    )
+                    await persistence.clear_unknown(db, message.gmail_message_id)
+                    await db.commit()
+                    duplicates += 1
+                    continue
+
+                category, category_source = await engine.categorize(
+                    db, persistence.transaction_to_dict(transaction)
                 )
+                await persistence.insert_transaction(db, message, transaction, category, category_source)
                 await persistence.clear_unknown(db, message.gmail_message_id)
-                duplicates += 1
-                continue
+                await db.commit()
+                inserted += 1
 
-            category, category_source = await engine.categorize(
-                db, persistence.transaction_to_dict(transaction)
+            duration = time.monotonic() - started_at
+            await persistence.record_run(
+                db,
+                emails_checked=len(messages),
+                inserted=inserted,
+                duplicates=duplicates,
+                failed=failed,
+                duration_seconds=duration,
             )
-            await persistence.insert_transaction(db, message, transaction, category, category_source)
-            await persistence.clear_unknown(db, message.gmail_message_id)
-            inserted += 1
+            await db.commit()
+        finally:
+            await db.close()
 
-        duration = time.monotonic() - started_at
-        await persistence.record_run(
-            db,
-            emails_checked=len(messages),
-            inserted=inserted,
-            duplicates=duplicates,
-            failed=failed,
-            duration_seconds=duration,
-        )
-        await db.commit()
+        summary = {
+            "emails_checked": len(messages),
+            "inserted": inserted,
+            "duplicates": duplicates,
+            "failed": failed,
+        }
+        logger.info(f"Ingestion complete: {summary}")
+        return summary
     finally:
-        await db.close()
-
-    summary = {
-        "emails_checked": len(messages),
-        "inserted": inserted,
-        "duplicates": duplicates,
-        "failed": failed,
-    }
-    logger.info(f"Ingestion complete: {summary}")
-    return summary
+        _INGESTION_LOCK.release()

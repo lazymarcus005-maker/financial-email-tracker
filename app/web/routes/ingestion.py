@@ -9,7 +9,7 @@ from app.classification.engine import CategoryEngine
 from app.config import Settings, get_settings
 from app.gmail.client import GmailClient
 from app.ingestion.reparse import reparse_unknown
-from app.ingestion.service import run_ingestion
+from app.ingestion.service import IngestionAlreadyRunningError, run_ingestion
 from app.parsers.registry import ParserRegistry
 from app.storage import queries
 from app.web.deps import get_category_engine, get_db, get_gmail_client, get_parser_registry
@@ -34,7 +34,10 @@ async def trigger_run(
     settings: Settings = Depends(get_settings),
     engine: CategoryEngine = Depends(get_category_engine),
 ):
-    summary = await run_ingestion(settings.GMAIL_QUERY, engine=engine)
+    try:
+        summary = await run_ingestion(settings.GMAIL_QUERY, engine=engine)
+    except IngestionAlreadyRunningError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
     return summary
 
 

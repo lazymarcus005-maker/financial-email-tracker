@@ -7,6 +7,8 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 DATABASE_PATH = Path("data/finance.db")
+SQLITE_TIMEOUT_SECONDS = 30
+SQLITE_BUSY_TIMEOUT_MS = SQLITE_TIMEOUT_SECONDS * 1000
 
 
 SCHEMA_SQL = """
@@ -89,14 +91,23 @@ async def init_db():
     """Initialize database and schema."""
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     
-    async with aiosqlite.connect(str(DATABASE_PATH)) as db:
+    async with aiosqlite.connect(str(DATABASE_PATH), timeout=SQLITE_TIMEOUT_SECONDS) as db:
+        await configure_connection(db)
         await db.executescript(SCHEMA_SQL)
         await db.commit()
         logger.info(f"Database initialized: {DATABASE_PATH}")
 
 
+async def configure_connection(db: aiosqlite.Connection) -> None:
+    """Apply SQLite pragmas that make web reads and ingestion writes coexist better."""
+    await db.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
+    await db.execute("PRAGMA journal_mode = WAL")
+    await db.execute("PRAGMA synchronous = NORMAL")
+
+
 async def get_connection() -> aiosqlite.Connection:
     """Get database connection."""
-    db = await aiosqlite.connect(str(DATABASE_PATH))
+    db = await aiosqlite.connect(str(DATABASE_PATH), timeout=SQLITE_TIMEOUT_SECONDS)
     db.row_factory = aiosqlite.Row
+    await configure_connection(db)
     return db

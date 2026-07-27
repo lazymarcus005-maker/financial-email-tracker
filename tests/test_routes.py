@@ -353,6 +353,16 @@ def test_trigger_ingestion_run(client, monkeypatch):
     assert resp.json() == {"emails_checked": 3, "inserted": 2, "duplicates": 1, "failed": 0}
 
 
+def test_trigger_ingestion_run_returns_409_when_already_running(client, monkeypatch):
+    async def fake_run_ingestion(query, engine=None):
+        raise ingestion_routes.IngestionAlreadyRunningError("An ingestion run is already in progress")
+
+    monkeypatch.setattr(ingestion_routes, "run_ingestion", fake_run_ingestion)
+
+    resp = client.post("/api/ingestion/run")
+    assert resp.status_code == 409
+
+
 @pytest.mark.asyncio
 async def test_list_runs_empty_then_populated(client, db_connection):
     resp = client.get("/api/runs")
