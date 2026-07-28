@@ -17,6 +17,7 @@ from app.gmail.authorize import (
     user_token_path,
 )
 from app.gmail.client import GmailClient
+from app.integrations.line import send_message
 from app.storage import queries
 from app.web.deps import get_current_user_id, get_db, templates
 
@@ -25,6 +26,166 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["settings"])
 page_router = APIRouter(tags=["settings-pages"])
 GMAIL_OAUTH_STATE_COOKIE = "fet_gmail_oauth_state"
+
+# User settings keys
+SETTING_KEY_GMAIL_QUERY = "gmail_query"
+SETTING_KEY_SCHEDULE = "schedule"
+
+
+async def _get_user_setting_or_default(
+    db: aiosqlite.Connection,
+    key: str,
+    default: str,
+    owner_user_id: int | None,
+) -> str:
+    """Get user setting from DB, fall back to default if not set."""
+    value = await queries.get_user_setting(db, key, owner_user_id=owner_user_id)
+    return value if value is not None else default
+
+
+def _safe_settings(settings: Settings) -> dict:
+    """Return settings safe to show in the UI - no tokens/credentials."""
+    return {
+        "gmail_query": settings.GMAIL_QUERY,
+        "database_path": settings.DATABASE_PATH,
+        "schedule": settings.SCHEDULE,
+        "timezone": settings.TIMEZONE,
+        "ai_enabled": settings.AI_ENABLED,
+        "ollama_base_url": settings.OLLAMA_BASE_URL,
+        "ollama_model": settings.OLLAMA_MODEL,
+        "parser_version": settings.PARSER_VERSION,
+        "line_configured": bool(settings.LINE_CHANNEL_ACCESS_TOKEN and settings.LINE_USER_ID),
+        "log_level": settings.LOG_LEVEL,
+    }
+
+
+async def _load_user_settings(db: aiosqlite.Connection, settings: Settings, owner_user_id: int | None) -> dict:
+    """Load user-overridden settings from database, with fallback to config."""
+    gmail_query = await _get_user_setting_or_default(
+        db, SETTING_KEY_GMAIL_QUERY, settings.GMAIL_QUERY, owner_user_id
+    )
+    schedule_raw = await _get_user_setting_or_default(
+        db, SETTING_KEY_SCHEDULE, ",".join(settings.SCHEDULE), owner_user_id
+    )
+    schedule = [s.strip() for s in schedule_raw.split(",") if s.strip()]
+    
+    return {
+        "gmail_query": gmail_query,
+        "schedule": schedule,
+    }
+
+
+# ---- API endpoints for user settings -----------------------------------------
+
+@router.get("/settings/gmail-query")
+async def get_gmail_query(
+    db: aiosqlite.Connection = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    owner_user_id: int = Depends(get_current_user_id),
+):
+    """Get the Gmail query, from DB or falling back to config."""
+    value = await _get_user_setting_or_default(
+        db, SETTING_KEY_GMAIL_QUERY, settings.GMAIL_QUERY, owner_user_id
+    )
+    return {"gmail_query": value}
+
+
+@router.post("/settings/gmail-query")
+async def set_gmail_query(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    owner_user_id: int = Depends(get_current_user_id),
+):
+    """Set the Gmail query."""
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    
+    value = data.get("gmail_query", "")
+    await queries.set_user_setting(db, SETTING_KEY_GMAIL_QUERY, value, owner_user_id=owner_user_id)
+    
+    if request.headers.get("HX-Request") == "true":
+        return HTMLResponse(
+            f'<div id="gmail-query-display" class="text-sm text-foreground mt-0.5 break-all">{value or "-"}</div>'
+        )
+    return {"gmail_query": value}
+
+
+@router.get("/settings/schedule")
+async def get_schedule(
+    db: aiosqlite.Connection = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    owner_user_id: int = Depends(get_current_user_id),
+):
+    """Get the schedule, from DB or falling back to config."""
+    value = await _get_user_setting_or_default(
+        db, SETTING_KEY_SCHEDULE, ",".join(settings.SCHEDULE), owner_user_id
+    )
+    # Parse comma-separated schedule back to list
+    schedule_list = [s.strip() for s in value.split(",") if s.strip()]
+    return {"schedule": schedule_list, "schedule_raw": value}
+
+
+@router.post("/settings/schedule")
+async def set_schedule(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    owner_user_id: int = Depends(get_current_user_id),
+):
+    """Set the schedule (comma-separated times like '05:00,10:00,14:00,22:00')."""
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    
+    value = data.get("schedule", "")
+    await queries.set_user_setting(db, SETTING_KEY_SCHEDULE, value, owner_user_id=owner_user_id)
+    
+    # Parse for display
+    schedule_list = [s.strip() for s in value.split(",") if s.strip()]
+    display = ", ".join(schedule_list) if schedule_list else "-"
+    
+    if request.headers.get("HX-Request") == "true":
+        return HTMLResponse(
+            f'<div id="schedule-display" class="text-sm text-foreground mt-0.5">{display}</div>'
+        )
+    return {"schedule": schedule_list}
+
+
+@router.post("/settings/line-test")
+async def test_line_message(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+    owner_user_id: int = Depends(get_current_user_id),
+):
+    """Send a test LINE message."""
+    if not settings.LINE_CHANNEL_ACCESS_TOKEN or not settings.LINE_USER_ID:
+        if request.headers.get("HX-Request") == "true":
+            return HTMLResponse(
+                '<div id="line-status" class="text-sm text-red-600">LINE not configured.</div>'
+            )
+        raise HTTPException(status_code=400, detail="LINE not configured")
+    
+    success = await send_message(
+        user_id=settings.LINE_USER_ID,
+        text="🔔 Test message from Financial Email Tracker",
+        channel_access_token=settings.LINE_CHANNEL_ACCESS_TOKEN,
+    )
+    
+    if request.headers.get("HX-Request") == "true":
+        if success:
+            return HTMLResponse(
+                '<div id="line-status" class="text-sm text-green-600">Test message sent!</div>'
+            )
+        else:
+            return HTMLResponse(
+                '<div id="line-status" class="text-sm text-red-600">Failed to send test message.</div>'
+            )
+    
+    if success:
+        return {"success": True, "message": "Test message sent"}
+    raise HTTPException(status_code=500, detail="Failed to send test message")
 
 
 def _public_url_for(request: Request, route_name: str, settings: Settings) -> str:
@@ -62,22 +223,6 @@ def _gmail_profile_email(settings: Settings, owner_user_id: int) -> str | None:
         credentials_path=settings.GMAIL_CREDENTIALS_PATH,
         token_path=token_path,
     ).get_profile_email()
-
-
-def _safe_settings(settings: Settings) -> dict:
-    """Return settings safe to show in the UI - no tokens/credentials."""
-    return {
-        "gmail_query": settings.GMAIL_QUERY,
-        "database_path": settings.DATABASE_PATH,
-        "schedule": settings.SCHEDULE,
-        "timezone": settings.TIMEZONE,
-        "ai_enabled": settings.AI_ENABLED,
-        "ollama_base_url": settings.OLLAMA_BASE_URL,
-        "ollama_model": settings.OLLAMA_MODEL,
-        "parser_version": settings.PARSER_VERSION,
-        "line_configured": bool(settings.LINE_CHANNEL_ACCESS_TOKEN and settings.LINE_USER_ID),
-        "log_level": settings.LOG_LEVEL,
-    }
 
 
 @router.get("/settings")
@@ -217,8 +362,14 @@ async def settings_page(
     request: Request,
     settings: Settings = Depends(get_settings),
     owner_user_id: int = Depends(get_current_user_id),
+    db: aiosqlite.Connection = Depends(get_db),
 ):
+    # Start with config defaults
     safe_settings = _safe_settings(settings)
+    # Override with user settings from database if available
+    user_settings = await _load_user_settings(db, settings, owner_user_id)
+    safe_settings.update(user_settings)
+    # Add Gmail connection status
     safe_settings["gmail_connected"] = token_exists(user_token_path(owner_user_id))
     safe_settings["gmail_profile_email"] = _gmail_profile_email(settings, owner_user_id)
     safe_settings["gmail_redirect_uri"] = _public_url_for(request, "gmail_oauth_callback", settings)

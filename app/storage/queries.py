@@ -1043,3 +1043,61 @@ async def get_daily_summary_data(
         "parse_error_count": parse_error_row["n"],
         "last_sync": last_sync,
     }
+
+
+# ---- User settings ----------------------------------------------------------
+
+async def get_user_setting(
+    db: aiosqlite.Connection, key: str, owner_user_id: int | None = None
+) -> str | None:
+    """Get a user setting value by key. Returns None if not set."""
+    where = ["key = ?"]
+    params: list = [key]
+    _add_owner_filter(where, params, owner_user_id)
+    cursor = await db.execute(
+        f"SELECT value FROM user_settings WHERE {' AND '.join(where)}",
+        params,
+    )
+    row = await cursor.fetchone()
+    await cursor.close()
+    return row["value"] if row else None
+
+
+async def set_user_setting(
+    db: aiosqlite.Connection,
+    key: str,
+    value: str | None,
+    owner_user_id: int | None = None,
+) -> None:
+    """Set a user setting value. Use None or empty string to delete."""
+    if value is None or value == "":
+        # Delete the setting
+        where = ["key = ?"]
+        params: list = [key]
+        _add_owner_filter(where, params, owner_user_id)
+        await db.execute(f"DELETE FROM user_settings WHERE {' AND '.join(where)}", params)
+    else:
+        # Upsert the setting
+        await db.execute(
+            """
+            INSERT INTO user_settings (owner_user_id, key, value)
+            VALUES (?, ?, ?)
+            ON CONFLICT(owner_user_id, key) DO UPDATE SET
+                value = excluded.value,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (owner_user_id, key, value),
+        )
+    await db.commit()
+
+
+async def list_user_settings(
+    db: aiosqlite.Connection, owner_user_id: int | None = None
+) -> dict[str, str]:
+    """Get all user settings as a dict."""
+    owner_sql = "WHERE owner_user_id IS NULL" if owner_user_id is None else "WHERE owner_user_id = ?"
+    params = [] if owner_user_id is None else [owner_user_id]
+    cursor = await db.execute(f"SELECT key, value FROM user_settings {owner_sql}", params)
+    rows = await cursor.fetchall()
+    await cursor.close()
+    return {row["key"]: row["value"] for row in rows}

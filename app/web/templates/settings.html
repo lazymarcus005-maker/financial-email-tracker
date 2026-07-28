@@ -14,8 +14,10 @@
                     {{ 'Connected' if settings.gmail_connected else 'Not connected' }}
                 </span>
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <a href="/gmail/connect" class="btn btn-primary btn-md">Connect Gmail</a>
+            <div class="flex flex-wrap items-center gap-2" id="gmail-buttons">
+                <a href="/gmail/connect" 
+                   class="btn btn-primary btn-md"
+                   {% if settings.gmail_connected %}style="display: none;"{% endif %}>Connect Gmail</a>
                 {% if settings.gmail_connected %}
                 <button
                     class="btn btn-outline btn-md"
@@ -50,7 +52,25 @@
         <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
             <div>
                 <dt class="text-xs text-muted-foreground">Gmail Query</dt>
-                <dd class="text-sm text-foreground mt-0.5 break-all">{{ settings.gmail_query }}</dd>
+                <dd class="text-sm text-foreground mt-0.5 break-all" id="gmail-query-display">{{ settings.gmail_query or '-' }}</dd>
+                <button
+                    class="btn btn-outline btn-sm mt-2"
+                    onclick="toggleGmailQueryEdit()"
+                >Edit</button>
+            </div>
+            <div id="gmail-query-edit" style="display: none;">
+                <dt class="text-xs text-muted-foreground">Edit Gmail Query</dt>
+                <form hx-post="/api/settings/gmail-query" hx-target="#gmail-query-display" hx-swap="outerHTML">
+                    <textarea 
+                        name="gmail_query" 
+                        class="input w-full mt-1" 
+                        rows="3"
+                    >{{ settings.gmail_query }}</textarea>
+                    <div class="flex gap-2 mt-2">
+                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="toggleGmailQueryEdit()">Cancel</button>
+                    </div>
+                </form>
             </div>
             <div>
                 <dt class="text-xs text-muted-foreground">Database Path</dt>
@@ -58,7 +78,27 @@
             </div>
             <div>
                 <dt class="text-xs text-muted-foreground">Schedule</dt>
-                <dd class="text-sm text-foreground mt-0.5">{{ settings.schedule|join(', ') if settings.schedule else '-' }}</dd>
+                <dd class="text-sm text-foreground mt-0.5" id="schedule-display">{{ settings.schedule|join(', ') if settings.schedule else '-' }}</dd>
+                <button
+                    class="btn btn-outline btn-sm mt-2"
+                    onclick="toggleScheduleEdit()"
+                >Edit</button>
+            </div>
+            <div id="schedule-edit" style="display: none;">
+                <dt class="text-xs text-muted-foreground">Edit Schedule (comma-separated times)</dt>
+                <form hx-post="/api/settings/schedule" hx-target="#schedule-display" hx-swap="outerHTML">
+                    <input 
+                        type="text" 
+                        name="schedule" 
+                        class="input w-full mt-1" 
+                        value="{{ settings.schedule|join(',') }}"
+                        placeholder="e.g., 05:00, 10:00, 14:00, 22:00"
+                    >
+                    <div class="flex gap-2 mt-2">
+                        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="toggleScheduleEdit()">Cancel</button>
+                    </div>
+                </form>
             </div>
             <div>
                 <dt class="text-xs text-muted-foreground">Timezone</dt>
@@ -83,6 +123,15 @@
             <div>
                 <dt class="text-xs text-muted-foreground">LINE Configured</dt>
                 <dd class="text-sm mt-0.5"><span class="badge {% if settings.line_configured %}badge-success{% else %}badge-neutral{% endif %}">{{ 'Yes' if settings.line_configured else 'No' }}</span></dd>
+                {% if settings.line_configured %}
+                <button
+                    class="btn btn-outline btn-sm mt-2"
+                    hx-post="/api/settings/line-test"
+                    hx-target="#line-status"
+                    hx-swap="outerHTML"
+                >Send Test Message</button>
+                <div id="line-status" class="text-sm mt-2"></div>
+                {% endif %}
             </div>
             <div>
                 <dt class="text-xs text-muted-foreground">Log Level</dt>
@@ -120,4 +169,30 @@
         <div id="settings-data-status" class="text-sm text-muted-foreground mt-3">Export before clearing or importing if you need a restore point.</div>
     </div>
 </div>
+
+<script>
+function toggleGmailQueryEdit() {
+    const display = document.getElementById('gmail-query-display');
+    const edit = document.getElementById('gmail-query-edit');
+    if (display.style.display === 'none') {
+        display.style.display = 'block';
+        edit.style.display = 'none';
+    } else {
+        display.style.display = 'none';
+        edit.style.display = 'block';
+    }
+}
+
+function toggleScheduleEdit() {
+    const display = document.getElementById('schedule-display');
+    const edit = document.getElementById('schedule-edit');
+    if (display.style.display === 'none') {
+        display.style.display = 'block';
+        edit.style.display = 'none';
+    } else {
+        display.style.display = 'none';
+        edit.style.display = 'block';
+    }
+}
+</script>
 {% endblock %}
