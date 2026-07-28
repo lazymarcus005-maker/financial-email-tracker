@@ -450,3 +450,96 @@ async def test_retry_run_retries_pending_unknowns(client, db_connection, monkeyp
     assert body["retried"] == 1
     assert body["parsed"] == 1
     assert body["failed"] == 0
+
+
+@pytest.mark.asyncio
+async def test_unknown_detail_modal_route(client, db_connection):
+    unknown_id = await _insert_unknown(db_connection)
+    resp = client.get(f"/unknown/{unknown_id}/modal")
+    assert resp.status_code == 200
+    assert "Categorize as Transaction" in resp.text
+
+
+def test_unknown_detail_modal_404_for_missing(client):
+    resp = client.get("/unknown/999999/modal")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_promote_unknown_creates_transaction_and_resolves(client, db_connection):
+    unknown_id = await _insert_unknown(db_connection, sender="notify@kasikornbank.com")
+
+    resp = client.post(
+        f"/api/unknown/{unknown_id}/promote",
+        data={
+            "transaction_type": "bank_transfer",
+            "direction": "out",
+            "status": "success",
+            "occurred_at": "2026-07-27T10:00",
+            "amount": "250.0",
+            "category": "Shopping",
+        },
+    )
+    assert resp.status_code == 200
+    assert "Promoted to" in resp.text
+
+    cursor = await db_connection.execute(
+        "SELECT status, resolved_transaction_id FROM unknown_patterns WHERE id = ?", (unknown_id,)
+    )
+    row = await cursor.fetchone()
+    await cursor.close()
+    assert row["status"] == "resolved"
+    assert row["resolved_transaction_id"] is not None
+
+    cursor = await db_connection.execute(
+        "SELECT category, category_source, bank FROM transactions WHERE id = ?", (row["resolved_transaction_id"],)
+    )
+    tx_row = await cursor.fetchone()
+    await cursor.close()
+    assert tx_row["category"] == "Shopping"
+    assert tx_row["category_source"] == "manual"
+    assert tx_row["bank"] == "KBank"
+
+
+@pytest.mark.asyncio
+async def test_promote_unknown_missing_required_field_returns_422(client, db_connection):
+    unknown_id = await _insert_unknown(db_connection)
+
+    resp = client.post(
+        f"/api/unknown/{unknown_id}/promote",
+        data={"transaction_type": "bank_transfer", "direction": "out", "status": "success"},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_promote_unknown_already_resolved_returns_409(client, db_connection):
+    unknown_id = await _insert_unknown(db_connection, status="resolved")
+
+    resp = client.post(
+        f"/api/unknown/{unknown_id}/promote",
+        data={
+            "transaction_type": "bank_transfer",
+            "direction": "out",
+            "status": "success",
+            "occurred_at": "2026-07-27T10:00",
+            "amount": "10.0",
+            "category": "Shopping",
+        },
+    )
+    assert resp.status_code == 409
+
+
+def test_promote_unknown_not_found_returns_404(client):
+    resp = client.post(
+        "/api/unknown/999999/promote",
+        data={
+            "transaction_type": "bank_transfer",
+            "direction": "out",
+            "status": "success",
+            "occurred_at": "2026-07-27T10:00",
+            "amount": "10.0",
+            "category": "Shopping",
+        },
+    )
+    assert resp.status_code == 404

@@ -1,0 +1,64 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onclick="if (event.target === this) closeModal()">
+    <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 relative">
+        <button type="button" class="absolute top-3 right-3 text-neutral-400 hover:text-neutral-700 text-xl leading-none" onclick="closeModal()" aria-label="Close">&times;</button>
+        <h2 class="text-lg font-semibold text-neutral-900 mb-1">Unknown Email #{{ item.id }}</h2>
+        <p class="text-sm text-neutral-500 mb-4">{{ item.subject or '-' }}</p>
+
+        {% if item.warnings %}
+        <div class="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+            <div class="text-sm font-medium text-amber-800 mb-1">Warnings</div>
+            <ul class="list-disc list-inside text-sm text-amber-700">
+                {% for w in item.warnings %}
+                <li>{{ w }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <div class="card mb-4">
+            <h3 class="text-sm font-medium text-neutral-900 mb-3">Extracted Fields</h3>
+            {% if item.raw_fields %}
+            <table class="min-w-full text-sm zebra-table">
+                <tbody>
+                    {% for key, value in item.raw_fields.items() %}
+                    <tr class="border-b border-neutral-100">
+                        <td class="px-3 py-2 font-medium text-neutral-500 whitespace-nowrap">{{ key }}</td>
+                        <td class="px-3 py-2 text-neutral-900 break-all">{% if value %}<span lang="th" class="font-thai">{{ value }}</span>{% else %}-{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-sm text-neutral-500">No fields extracted.</p>
+            {% endif %}
+        </div>
+
+        <div class="card mb-4">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-medium text-neutral-900">Raw Email</h3>
+                <button
+                    type="button"
+                    class="px-3 py-1.5 rounded-lg border border-neutral-300 text-xs font-medium hover:bg-neutral-100 transition-colors duration-150"
+                    hx-get="/api/unknown/{{ item.id }}/raw-email"
+                    hx-target="#raw-email-unknown-{{ item.id }}"
+                    hx-swap="innerHTML"
+                >View Raw Email</button>
+            </div>
+            <div id="raw-email-unknown-{{ item.id }}" class="text-sm text-neutral-500">Click "View Raw Email" to load the original message from Gmail.</div>
+        </div>
+
+        {% if item.status == 'resolved' %}
+        <div class="card">
+            <p class="text-sm text-neutral-700">Resolved &rarr; <a href="/transactions/{{ item.resolved_transaction_id }}" class="text-neutral-900 underline">Transaction #{{ item.resolved_transaction_id }}</a></p>
+        </div>
+        {% elif item.status == 'ignored' %}
+        <div class="card">
+            <p class="text-sm text-neutral-500">This email has been ignored.</p>
+        </div>
+        {% else %}
+        <div id="promote-form-{{ item.id }}">
+            {% include "partials/unknown_promote_form.html" %}
+        </div>
+        {% endif %}
+    </div>
+</div>
