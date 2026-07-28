@@ -90,12 +90,36 @@ CREATE INDEX IF NOT EXISTS idx_ingestion_runs_run_at ON ingestion_runs(run_at);
 async def init_db():
     """Initialize database and schema."""
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    
+
     async with aiosqlite.connect(str(DATABASE_PATH), timeout=SQLITE_TIMEOUT_SECONDS) as db:
         await configure_connection(db)
         await db.executescript(SCHEMA_SQL)
+        await _migrate_schema(db)
         await db.commit()
         logger.info(f"Database initialized: {DATABASE_PATH}")
+
+
+async def _migrate_schema(db: aiosqlite.Connection) -> None:
+    """Add columns introduced after the initial schema, if not already present.
+
+    SQLite has no `ADD COLUMN IF NOT EXISTS`, so each addition is guarded by
+    checking `PRAGMA table_info` first.
+    """
+    cursor = await db.execute("PRAGMA table_info(transactions)")
+    transaction_columns = {row[1] for row in await cursor.fetchall()}
+    await cursor.close()
+    if "bank" not in transaction_columns:
+        await db.execute("ALTER TABLE transactions ADD COLUMN bank TEXT")
+
+    cursor = await db.execute("PRAGMA table_info(unknown_patterns)")
+    unknown_columns = {row[1] for row in await cursor.fetchall()}
+    await cursor.close()
+    if "received_at" not in unknown_columns:
+        await db.execute("ALTER TABLE unknown_patterns ADD COLUMN received_at DATETIME")
+    if "resolved_transaction_id" not in unknown_columns:
+        await db.execute("ALTER TABLE unknown_patterns ADD COLUMN resolved_transaction_id INTEGER")
+    if "resolved_at" not in unknown_columns:
+        await db.execute("ALTER TABLE unknown_patterns ADD COLUMN resolved_at DATETIME")
 
 
 async def configure_connection(db: aiosqlite.Connection) -> None:
