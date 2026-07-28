@@ -139,6 +139,13 @@ async def delete_transaction(db: aiosqlite.Connection, transaction_id: int) -> N
     await db.commit()
 
 
+async def get_transaction_id_by_gmail_message_id(db: aiosqlite.Connection, gmail_message_id: str) -> int | None:
+    cursor = await db.execute("SELECT id FROM transactions WHERE gmail_message_id = ?", (gmail_message_id,))
+    row = await cursor.fetchone()
+    await cursor.close()
+    return row["id"] if row else None
+
+
 # ---- Unknown patterns -------------------------------------------------------
 
 async def list_unknown(

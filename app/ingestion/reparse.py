@@ -73,7 +73,7 @@ async def reparse_transaction(
         UPDATE transactions SET
             transaction_type = ?, direction = ?, status = ?, occurred_at = ?, amount = ?, fee = ?,
             available_balance = ?, counterparty = ?, description = ?, category = ?, category_source = ?,
-            parse_status = ?, parse_confidence = ?, warnings_json = ?, raw_fields_json = ?,
+            bank = ?, parse_status = ?, parse_confidence = ?, warnings_json = ?, raw_fields_json = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
         """,
@@ -89,6 +89,7 @@ async def reparse_transaction(
             transaction.description,
             category,
             category_source,
+            registry.identify_bank(message.sender),
             transaction.parse_status,
             transaction.parse_confidence,
             json.dumps(transaction.parse_warnings, ensure_ascii=False),
@@ -161,11 +162,13 @@ async def reparse_unknown(
 
     if await persistence.already_ingested(db, row["gmail_message_id"]):
         logger.info(f"Reparse of unknown pattern {unknown_id} now succeeds but transaction already exists")
+        transaction_id = await queries.get_transaction_id_by_gmail_message_id(db, row["gmail_message_id"])
     else:
+        bank = registry.identify_bank(message.sender)
         category, category_source = await engine.categorize(db, persistence.transaction_to_dict(transaction))
-        await persistence.insert_transaction(db, message, transaction, category, category_source)
+        transaction_id = await persistence.insert_transaction(db, message, transaction, category, category_source, bank=bank)
 
-    await db.execute("DELETE FROM unknown_patterns WHERE id = ?", (unknown_id,))
+    await persistence.resolve_unknown(db, unknown_id, transaction_id)
     await db.commit()
-    logger.info(f"Reparsed unknown pattern {unknown_id} -> transaction")
-    return {"status": "parsed"}
+    logger.info(f"Reparsed unknown pattern {unknown_id} -> transaction {transaction_id}")
+    return {"status": "parsed", "transaction_id": transaction_id}
