@@ -316,6 +316,41 @@ async def test_update_transaction_ignore_flag(client, db_connection):
     assert resp.json()["parse_status"] == "ignored"
 
 
+@pytest.mark.asyncio
+async def test_update_transaction_ignore_flag_form_encoded(client, db_connection):
+    """htmx's hx-vals sends booleans as form-encoded strings, not JSON - the form branch
+    of update_transaction must also honor `ignore` (this was previously silently ignored,
+    making the Ignore/Unignore buttons on the transaction detail page no-ops)."""
+    tx_id = await _insert_transaction(db_connection)
+
+    resp = client.patch(f"/api/transactions/{tx_id}", data={"ignore": "true"})
+    assert resp.status_code == 200
+
+    cursor = await db_connection.execute("SELECT parse_status FROM transactions WHERE id = ?", (tx_id,))
+    row = await cursor.fetchone()
+    await cursor.close()
+    assert row["parse_status"] == "ignored"
+
+
+@pytest.mark.asyncio
+async def test_update_transaction_htmx_target_transaction_actions_returns_full_card(client, db_connection):
+    """When the Save Category button inside transaction_actions.html (hx-target=#transaction-actions)
+    submits, the response must be the full actions card, not the bare category badge fragment used
+    by the transactions-list inline editor - otherwise Save Category wipes out the Ignore/Reparse/
+    Delete buttons until the page is reloaded."""
+    tx_id = await _insert_transaction(db_connection)
+
+    resp = client.patch(
+        f"/api/transactions/{tx_id}",
+        data={"category": "New Category"},
+        headers={"HX-Request": "true", "HX-Target": "transaction-actions"},
+    )
+    assert resp.status_code == 200
+    assert "Reparse" in resp.text
+    assert "Delete" in resp.text
+    assert 'id="transaction-actions"' in resp.text
+
+
 def test_update_missing_transaction_returns_404(client):
     resp = client.patch("/api/transactions/999999", json={"category": "X"})
     assert resp.status_code == 404
@@ -363,6 +398,53 @@ async def test_transaction_rows_link_to_detail(client, db_connection):
 def test_transaction_detail_page_404_for_missing(client):
     resp = client.get("/transactions/999999")
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_transaction_detail_modal_route(client, db_connection):
+    tx_id = await _insert_transaction(db_connection)
+    resp = client.get(f"/transactions/{tx_id}/modal")
+    assert resp.status_code == 200
+    assert "Transaction #" in resp.text
+
+
+def test_transaction_detail_modal_404_for_missing(client):
+    resp = client.get("/transactions/999999/modal")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_transaction_raw_email_renders_fragment(client, db_connection, monkeypatch):
+    tx_id = await _insert_transaction(db_connection)
+
+    class FakeMessage:
+        sender = "notify@kasikornbank.com"
+        subject = "K PLUS: Transfer Successful"
+        received_at = "2026-07-27 10:00:00"
+        body_text = "Transaction Date: 27/07/2026\nAmount: 100.00 THB"
+
+    class FakeGmailClient:
+        def get_message(self, message_id):
+            return FakeMessage()
+
+    app.dependency_overrides[deps.get_gmail_client] = lambda: FakeGmailClient()
+    resp = client.get(f"/api/transactions/{tx_id}/raw-email")
+    assert resp.status_code == 200
+    assert "Transaction Date: 27/07/2026" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_transaction_raw_email_shows_error_on_gmail_failure(client, db_connection):
+    tx_id = await _insert_transaction(db_connection)
+
+    class FailingGmailClient:
+        def get_message(self, message_id):
+            raise RuntimeError("Gmail unreachable")
+
+    app.dependency_overrides[deps.get_gmail_client] = lambda: FailingGmailClient()
+    resp = client.get(f"/api/transactions/{tx_id}/raw-email")
+    assert resp.status_code == 200
+    assert "Could not load the original email" in resp.text
 
 
 @pytest.mark.asyncio
@@ -574,3 +656,96 @@ async def test_retry_run_retries_pending_unknowns(client, db_connection, monkeyp
     assert body["retried"] == 1
     assert body["parsed"] == 1
     assert body["failed"] == 0
+
+
+@pytest.mark.asyncio
+async def test_unknown_detail_modal_route(client, db_connection):
+    unknown_id = await _insert_unknown(db_connection)
+    resp = client.get(f"/unknown/{unknown_id}/modal")
+    assert resp.status_code == 200
+    assert "Categorize as Transaction" in resp.text
+
+
+def test_unknown_detail_modal_404_for_missing(client):
+    resp = client.get("/unknown/999999/modal")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_promote_unknown_creates_transaction_and_resolves(client, db_connection):
+    unknown_id = await _insert_unknown(db_connection, sender="notify@kasikornbank.com")
+
+    resp = client.post(
+        f"/api/unknown/{unknown_id}/promote",
+        data={
+            "transaction_type": "bank_transfer",
+            "direction": "out",
+            "status": "success",
+            "occurred_at": "2026-07-27T10:00",
+            "amount": "250.0",
+            "category": "Shopping",
+        },
+    )
+    assert resp.status_code == 200
+    assert "Promoted to" in resp.text
+
+    cursor = await db_connection.execute(
+        "SELECT status, resolved_transaction_id FROM unknown_patterns WHERE id = ?", (unknown_id,)
+    )
+    row = await cursor.fetchone()
+    await cursor.close()
+    assert row["status"] == "resolved"
+    assert row["resolved_transaction_id"] is not None
+
+    cursor = await db_connection.execute(
+        "SELECT category, category_source, bank FROM transactions WHERE id = ?", (row["resolved_transaction_id"],)
+    )
+    tx_row = await cursor.fetchone()
+    await cursor.close()
+    assert tx_row["category"] == "Shopping"
+    assert tx_row["category_source"] == "manual"
+    assert tx_row["bank"] == "KBank"
+
+
+@pytest.mark.asyncio
+async def test_promote_unknown_missing_required_field_returns_422(client, db_connection):
+    unknown_id = await _insert_unknown(db_connection)
+
+    resp = client.post(
+        f"/api/unknown/{unknown_id}/promote",
+        data={"transaction_type": "bank_transfer", "direction": "out", "status": "success"},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_promote_unknown_already_resolved_returns_409(client, db_connection):
+    unknown_id = await _insert_unknown(db_connection, status="resolved")
+
+    resp = client.post(
+        f"/api/unknown/{unknown_id}/promote",
+        data={
+            "transaction_type": "bank_transfer",
+            "direction": "out",
+            "status": "success",
+            "occurred_at": "2026-07-27T10:00",
+            "amount": "10.0",
+            "category": "Shopping",
+        },
+    )
+    assert resp.status_code == 409
+
+
+def test_promote_unknown_not_found_returns_404(client):
+    resp = client.post(
+        "/api/unknown/999999/promote",
+        data={
+            "transaction_type": "bank_transfer",
+            "direction": "out",
+            "status": "success",
+            "occurred_at": "2026-07-27T10:00",
+            "amount": "10.0",
+            "category": "Shopping",
+        },
+    )
+    assert resp.status_code == 404

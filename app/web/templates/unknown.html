@@ -11,6 +11,7 @@
         <select id="filter-status" name="status" class="input">
             <option value="" {% if filters.status == '' %}selected{% endif %}>Any</option>
             <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pending</option>
+            <option value="resolved" {% if filters.status == 'resolved' %}selected{% endif %}>Resolved</option>
             <option value="ignored" {% if filters.status == 'ignored' %}selected{% endif %}>Ignored</option>
         </select>
     </div>

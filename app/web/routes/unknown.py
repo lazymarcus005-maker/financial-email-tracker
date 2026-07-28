@@ -3,10 +3,11 @@
 import logging
 
 import aiosqlite
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 
 from app.classification.engine import CategoryEngine
 from app.gmail.client import GmailClient
+from app.ingestion import persistence
 from app.ingestion.reparse import reparse_unknown
 from app.parsers.registry import ParserRegistry
 from app.storage import queries
@@ -105,6 +106,85 @@ async def reparse(
         item = await queries.get_unknown(db, unknown_id)
         return templates.TemplateResponse(request, "partials/unknown_row.html", {"item": item})
     return result
+
+
+@router.get("/unknown/{unknown_id}/raw-email")
+async def get_unknown_raw_email(
+    unknown_id: int,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    gmail_client: GmailClient = Depends(get_gmail_client),
+):
+    row = await queries.get_unknown(db, unknown_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Unknown pattern not found")
+    try:
+        message = gmail_client.get_message(row["gmail_message_id"])
+        email = {"sender": message.sender, "subject": message.subject, "received_at": message.received_at, "body_text": message.body_text}
+        error = None
+    except Exception as e:
+        logger.warning(f"Failed to fetch raw email for unknown pattern {unknown_id}: {e}")
+        email = None
+        error = "Could not load the original email. It may have been deleted, or Gmail access failed."
+    return templates.TemplateResponse(request, "partials/raw_email.html", {"email": email, "error": error})
+
+
+@router.post("/unknown/{unknown_id}/promote")
+async def promote_unknown(
+    unknown_id: int,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    registry: ParserRegistry = Depends(get_parser_registry),
+    transaction_type: str = Form(...),
+    direction: str = Form(...),
+    status: str = Form(...),
+    occurred_at: str = Form(...),
+    amount: float = Form(...),
+    category: str = Form(...),
+    fee: float = Form(0.0),
+    available_balance: float | None = Form(None),
+    counterparty: str | None = Form(None),
+    description: str | None = Form(None),
+):
+    row = await queries.get_unknown(db, unknown_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Unknown pattern not found")
+    if row["status"] != "pending":
+        raise HTTPException(status_code=409, detail=f"Cannot promote a {row['status']} record")
+
+    bank = registry.identify_bank(row["sender"]) if row["sender"] else None
+    transaction_id = await persistence.insert_manual_transaction(
+        db,
+        gmail_message_id=row["gmail_message_id"],
+        bank=bank,
+        transaction_type=transaction_type,
+        direction=direction,
+        status=status,
+        occurred_at=occurred_at,
+        amount=amount,
+        category=category,
+        fee=fee,
+        available_balance=available_balance,
+        counterparty=counterparty,
+        description=description,
+    )
+    await persistence.resolve_unknown(db, unknown_id, transaction_id)
+    await db.commit()
+
+    item = await queries.get_unknown(db, unknown_id)
+    return templates.TemplateResponse(request, "partials/unknown_promoted.html", {"item": item})
+
+
+@page_router.get("/unknown/{unknown_id}/modal")
+async def unknown_detail_modal(request: Request, unknown_id: int, db: aiosqlite.Connection = Depends(get_db)):
+    item = await queries.get_unknown(db, unknown_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Unknown pattern not found")
+    categories = await queries.list_categories(db)
+    types = await queries.list_transaction_types(db)
+    return templates.TemplateResponse(
+        request, "partials/unknown_detail_modal.html", {"item": item, "categories": categories, "types": types}
+    )
 
 
 @page_router.get("/unknown")

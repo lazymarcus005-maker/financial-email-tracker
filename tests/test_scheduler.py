@@ -1,6 +1,8 @@
 """Tests for app.ingestion.scheduler - cron job wiring and job entry points."""
 
 import json
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -164,3 +166,29 @@ def test_evening_job_runs_ingestion_then_daily_summary(monkeypatch):
     scheduler.evening_job(_settings())
 
     assert calls == ["ingestion", "summary"]
+
+
+def test_next_scheduled_run_returns_next_slot_today():
+    settings = _settings()
+    now = datetime(2026, 7, 28, 6, 0, tzinfo=ZoneInfo("Asia/Bangkok"))
+    result = scheduler.next_scheduled_run(settings, now=now)
+    assert result == datetime(2026, 7, 28, 10, 0, tzinfo=ZoneInfo("Asia/Bangkok"))
+
+
+def test_next_scheduled_run_wraps_to_tomorrow():
+    settings = _settings()
+    now = datetime(2026, 7, 28, 23, 0, tzinfo=ZoneInfo("Asia/Bangkok"))
+    result = scheduler.next_scheduled_run(settings, now=now)
+    assert result == datetime(2026, 7, 29, 5, 0, tzinfo=ZoneInfo("Asia/Bangkok"))
+
+
+def test_next_scheduled_run_returns_none_for_empty_schedule():
+    settings = _settings(SCHEDULE=[])
+    assert scheduler.next_scheduled_run(settings) is None
+
+
+def test_next_scheduled_run_skips_slot_at_exact_now():
+    settings = _settings()
+    now = datetime(2026, 7, 28, 10, 0, tzinfo=ZoneInfo("Asia/Bangkok"))
+    result = scheduler.next_scheduled_run(settings, now=now)
+    assert result == datetime(2026, 7, 28, 14, 0, tzinfo=ZoneInfo("Asia/Bangkok"))

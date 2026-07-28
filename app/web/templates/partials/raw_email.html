@@ -1,0 +1,10 @@
+{% if error %}
+<p class="text-sm text-red-600">{{ error }}</p>
+{% else %}
+<dl class="text-xs text-neutral-500 mb-3 space-y-1">
+    <div><span class="font-medium">From:</span> {{ email.sender }}</div>
+    <div><span class="font-medium">Subject:</span> {{ email.subject }}</div>
+    <div><span class="font-medium">Received:</span> {{ email.received_at }}</div>
+</dl>
+<pre class="text-xs whitespace-pre-wrap break-words bg-neutral-50 border border-neutral-200 rounded-lg p-3 max-h-96 overflow-y-auto font-mono">{{ email.body_text }}</pre>
+{% endif %}

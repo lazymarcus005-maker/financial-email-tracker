@@ -25,12 +25,29 @@ SECTION_HEADERS = {
 #   "ไปยัง ธนาคารKBank เบอร์บัญชี"      followed by the account number on the next line
 _FROM_RE = re.compile(r"^จาก\s+(.+?)\s+เบอร์บัญชี\s*$")
 _TO_RE = re.compile(r"^ไปยัง\s+(.+?)\s+เบอร์บัญชี\s*$")
+_INLINE_FROM_RE = re.compile(r"จาก\s+(.+?)\s+เบอร์บัญชี\s*(\S+)")
+_INLINE_TO_RE = re.compile(r"ไปยัง\s+(.+?)\s+เบอร์บัญชี\s*(\S+)")
+_INLINE_AMOUNT_RE = re.compile(r"^จำนวนเงิน\s+(.+)$")
 
 
 def _header_key(line: str) -> str | None:
     """Return the section header key if `line` is a header, otherwise None."""
     key = line.strip().rstrip(":：").strip()
     return key if key in SECTION_HEADERS else None
+
+
+def _split_inline_section(line: str) -> tuple[str, str] | None:
+    stripped = line.strip()
+    if ":" in stripped or "：" in stripped:
+        label, value = re.split(r"[:：]", stripped, maxsplit=1)
+        label = label.strip()
+        value = value.strip()
+        if label in SECTION_HEADERS and value:
+            return label, value.strip()
+    match = _INLINE_AMOUNT_RE.match(stripped)
+    if match:
+        return "จำนวนเงิน", match.group(1).strip()
+    return None
 
 
 def _parse_details(value_lines: list[str], raw: dict) -> None:
@@ -53,6 +70,15 @@ def _parse_details(value_lines: list[str], raw: dict) -> None:
                 raw["to_account"] = value_lines[i + 1].strip()
                 i += 2
                 continue
+        else:
+            inline_from = _INLINE_FROM_RE.search(line)
+            inline_to = _INLINE_TO_RE.search(line)
+            if inline_from:
+                raw["from_bank"] = inline_from.group(1).strip()
+                raw["from_account"] = inline_from.group(2).strip()
+            elif inline_to:
+                raw["to_bank"] = inline_to.group(1).strip()
+                raw["to_account"] = inline_to.group(2).strip()
         i += 1
 
 
@@ -70,13 +96,26 @@ def extract_fields(text: str) -> dict[str, str]:
 
     i = 0
     while i < n:
+        inline = _split_inline_section(lines[i])
+        if inline is not None:
+            key, value = inline
+            i += 1
+            value_lines = [value] if value else []
+            if key == "รายละเอียด":
+                while i < n and _header_key(lines[i]) is None and _split_inline_section(lines[i]) is None:
+                    stripped = lines[i].strip()
+                    if stripped:
+                        value_lines.append(stripped)
+                    i += 1
+            sections.append((key, value_lines))
+            continue
         key = _header_key(lines[i])
         if key is None:
             i += 1
             continue
         i += 1
         value_lines: list[str] = []
-        while i < n and _header_key(lines[i]) is None:
+        while i < n and _header_key(lines[i]) is None and _split_inline_section(lines[i]) is None:
             stripped = lines[i].strip()
             if stripped:
                 value_lines.append(stripped)

@@ -36,6 +36,19 @@ def test_parses_sample_1_bill_payment():
     assert transaction.parse_status == "complete"
 
 
+def test_ignores_login_notification():
+    parser = LHBankParser()
+    transaction = parser.parse(
+        "เรียน คุณ พิชเยนทร์ เย็นศิริ\nไม่มีข้อมูลธุรกรรม",
+        subject="[แจ้งเตือน] - การเข้าใช้งานแอปพลิเคชัน / Login Notification.",
+    )
+
+    assert transaction is not None
+    assert transaction.parse_status == "ignored"
+    assert transaction.status == "ignored"
+    assert transaction.raw_fields["ignored_reason"] == "non_transaction_notification"
+
+
 def test_can_handle_lhbank_sender():
     parser = LHBankParser()
     assert parser.can_handle("LHBYou@lhbank.co.th")

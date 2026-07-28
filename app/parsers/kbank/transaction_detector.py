@@ -20,6 +20,10 @@ _CANCELLED_KEYWORDS = ["cancel", "cancelled", "canceled", "ยกเลิก"]
 
 _IN_KEYWORDS = ["received", "you have received", "transfer from", "โอนเข้า", "รับเงิน"]
 _OUT_KEYWORDS = ["sent", "transfer to", "โอนออก", "จ่าย"]
+_OUT_SUBJECT_KEYWORDS = [
+    "result of funds transfer",
+    "result of promptpay funds transfer",
+]
 
 # Transaction types whose direction is implied regardless of subject wording.
 _DIRECTION_BY_TYPE = {
@@ -74,12 +78,12 @@ def detect(subject: str, canonical, body_text: str = "") -> TransactionAttribute
     else:
         status = "unknown"
 
-    if transaction_type in _DIRECTION_BY_TYPE:
-        direction = _DIRECTION_BY_TYPE[transaction_type]
-    elif _match_any(subject, _IN_KEYWORDS):
+    if _match_any(subject, _IN_KEYWORDS):
         direction = "in"
-    elif _match_any(subject, _OUT_KEYWORDS):
+    elif _match_any(subject, _OUT_KEYWORDS) or _match_any(subject, _OUT_SUBJECT_KEYWORDS):
         direction = "out"
+    elif transaction_type in _DIRECTION_BY_TYPE:
+        direction = _DIRECTION_BY_TYPE[transaction_type]
     else:
         direction = "unknown"
 

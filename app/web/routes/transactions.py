@@ -78,6 +78,9 @@ async def update_transaction(
     if "application/x-www-form-urlencoded" in ct:
         form = await request.form()
         category = form.get("category")
+        ignore_raw = form.get("ignore")
+        if ignore_raw is not None:
+            await queries.set_transaction_ignored(db, transaction_id, ignore_raw == "true")
     else:
         body = await request.json()
         category = body.get("category")
@@ -93,6 +96,8 @@ async def update_transaction(
     t = await queries.get_transaction(db, transaction_id)
     # HTMX: return HTML partial
     if request.headers.get("HX-Request") == "true":
+        if request.headers.get("HX-Target") == "transaction-actions":
+            return templates.TemplateResponse(request, "partials/transaction_actions.html", {"t": t})
         return templates.TemplateResponse(request, "partials/category_badge.html", {"t": t})
     return t
 
@@ -131,6 +136,27 @@ async def reparse(
         t = await queries.get_transaction(db, transaction_id)
         return templates.TemplateResponse(request, "partials/transaction_actions.html", {"t": t})
     return result
+
+
+@router.get("/transactions/{transaction_id}/raw-email")
+async def get_transaction_raw_email(
+    transaction_id: int,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    gmail_client: GmailClient = Depends(get_gmail_client),
+):
+    transaction = await queries.get_transaction(db, transaction_id)
+    if transaction is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    try:
+        message = gmail_client.get_message(transaction["gmail_message_id"])
+        email = {"sender": message.sender, "subject": message.subject, "received_at": message.received_at, "body_text": message.body_text}
+        error = None
+    except Exception as e:
+        logger.warning(f"Failed to fetch raw email for transaction {transaction_id}: {e}")
+        email = None
+        error = "Could not load the original email. It may have been deleted, or Gmail access failed."
+    return templates.TemplateResponse(request, "partials/raw_email.html", {"email": email, "error": error})
 
 
 @page_router.get("/transactions")
@@ -196,6 +222,15 @@ async def transaction_detail_page(request: Request, transaction_id: int, db: aio
         raise HTTPException(status_code=404, detail="Transaction not found")
     categories = await queries.list_categories(db)
     return templates.TemplateResponse(request, "transaction_detail.html", {"t": transaction, "categories": categories})
+
+
+@page_router.get("/transactions/{transaction_id}/modal")
+async def transaction_detail_modal(request: Request, transaction_id: int, db: aiosqlite.Connection = Depends(get_db)):
+    transaction = await queries.get_transaction(db, transaction_id)
+    if transaction is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    categories = await queries.list_categories(db)
+    return templates.TemplateResponse(request, "partials/transaction_detail_modal.html", {"t": transaction, "categories": categories})
 
 
 @page_router.get("/transactions/{transaction_id}/edit-category")

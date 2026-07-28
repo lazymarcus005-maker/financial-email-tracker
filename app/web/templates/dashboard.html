@@ -48,9 +48,9 @@
     {% endfor %}
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-8">
     <div class="card lg:col-span-2">
-        <div class="flex items-center justify-between gap-3 mb-5">
+        <div class="flex items-center justify-between gap-3 mb-1">
             <h2 class="text-sm font-medium text-neutral-900">Expense</h2>
             <div class="flex rounded-lg border border-neutral-300 overflow-hidden text-sm">
                 {% for option in [7, 14, 30] %}
@@ -61,6 +61,7 @@
                 {% endfor %}
             </div>
         </div>
+        <div class="text-xs text-neutral-500 mb-4">Total: ฿{{ '{:,.2f}'.format(total_expense) }} over last {{ expense_window_days }} days</div>
 
         <div class="h-64 flex items-end gap-2 border-b border-neutral-200">
             {% for item in expense_days %}
@@ -83,26 +84,48 @@
     </div>
 
     <div class="card">
+        <h2 class="text-sm font-medium text-neutral-900 mb-3">Spend by Bank</h2>
+        {% if pie_segments and pie_segments|sum(attribute='total') > 0 %}
+        <div class="flex flex-col items-center gap-4">
+            <svg viewBox="0 0 36 36" class="w-32 h-32 -rotate-90">
+                <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#e5e5e5" stroke-width="4"></circle>
+                {% for seg in pie_segments %}
+                <circle
+                    cx="18" cy="18" r="15.9155" fill="none" stroke="{{ seg.color }}" stroke-width="4"
+                    stroke-dasharray="{{ seg.dasharray }}" stroke-dashoffset="{{ seg.dashoffset }}"
+                >
+                    <title>{{ seg.bank }}: ฿{{ '{:,.2f}'.format(seg.total) }} ({{ '%.1f'|format(seg.pct) }}%)</title>
+                </circle>
+                {% endfor %}
+            </svg>
+            <ul class="w-full space-y-1.5 text-xs">
+                {% for seg in pie_segments %}
+                <li class="flex items-center justify-between gap-2">
+                    <span class="flex items-center gap-1.5 min-w-0">
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ seg.color }}"></span>
+                        <span class="truncate text-neutral-700">{{ seg.bank }}</span>
+                    </span>
+                    <span class="text-neutral-500 tabular-nums shrink-0">฿{{ '{:,.0f}'.format(seg.total) }} ({{ '%.0f'|format(seg.pct) }}%)</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% else %}
+        <p class="text-sm text-neutral-500">No expense data yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
         <h2 class="text-sm font-medium text-neutral-900 mb-3">Recent Runs</h2>
         {% if runs %}
-        <div class="space-y-2">
+        <div class="space-y-3">
             {% for run in runs %}
-            <div class="flex items-center justify-between text-sm">
-                <div class="flex items-center gap-2 min-w-0">
-                    <span class="badge {% if run.failed and run.failed > 0 %}badge-expense{% else %}badge-income{% endif %}">
-                        {{ run.emails_checked or 0 }} emails
-                    </span>
+            <div class="text-sm border-b border-neutral-100 pb-2 last:border-0 last:pb-0">
+                <div class="flex items-center justify-between gap-2">
                     <span class="text-neutral-500 truncate">{{ run.run_at | thai_date if run.run_at else '' }}</span>
-                </div>
-                <div class="flex items-center gap-1.5 text-xs text-neutral-500 tabular-nums">
-                    <span title="Inserted" class="text-green-600">+{{ run.inserted or 0 }}</span>
-                    {% if run.duplicates and run.duplicates > 0 %}
-                    <span title="Duplicates" class="text-amber-600">~{{ run.duplicates }}</span>
-                    {% endif %}
                     {% if run.failed and run.failed > 0 %}
-                    <span title="Failed" class="text-red-600">!{{ run.failed }}</span>
                     <button
-                        class="px-1.5 py-0.5 rounded border border-red-300 text-red-600 text-xs hover:bg-red-50 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-red-400"
+                        class="px-1.5 py-0.5 rounded border border-red-300 text-red-600 text-xs hover:bg-red-50 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-red-400 shrink-0"
                         hx-post="/api/ingestion/retry/{{ run.id }}"
                         hx-swap="none"
                         hx-trigger="click"
@@ -110,11 +133,20 @@
                     >Retry</button>
                     {% endif %}
                 </div>
+                {% if run.failed and run.failed > 0 %}
+                <div class="text-amber-700 text-xs mt-1">⚠️ Completed with {{ run.failed }} failure{{ 's' if run.failed != 1 else '' }} — {{ run.emails_checked or 0 }} scanned, {{ run.inserted or 0 }} saved</div>
+                <div class="text-neutral-400 text-xs">No automatic retry — click Retry to reprocess</div>
+                {% else %}
+                <div class="text-green-700 text-xs mt-1">✅ {{ run.emails_checked or 0 }} scanned, {{ run.inserted or 0 }} saved{% if run.duplicates %}, {{ run.duplicates }} duplicate{{ 's' if run.duplicates != 1 else '' }}{% endif %}</div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
         {% else %}
         <p class="text-sm text-neutral-500">No runs yet.</p>
+        {% endif %}
+        {% if next_sync %}
+        <div class="text-xs text-neutral-400 mt-3 pt-3 border-t border-neutral-100">Next scheduled sync: {{ next_sync.strftime('%H:%M') }}</div>
         {% endif %}
     </div>
 </div>

@@ -74,7 +74,7 @@ async def run_ingestion(
                     logger.info(
                         f"Skipping duplicate transaction (reference/fingerprint match) for message {message.gmail_message_id}"
                     )
-                    await persistence.clear_unknown(db, message.gmail_message_id)
+                    await persistence.resolve_unknown_by_message(db, message.gmail_message_id, None)
                     await db.commit()
                     duplicates += 1
                     continue
@@ -82,8 +82,11 @@ async def run_ingestion(
                 category, category_source = await engine.categorize(
                     db, persistence.transaction_to_dict(transaction)
                 )
-                await persistence.insert_transaction(db, message, transaction, category, category_source)
-                await persistence.clear_unknown(db, message.gmail_message_id)
+                bank = registry.identify_bank(message.sender)
+                transaction_id = await persistence.insert_transaction(
+                    db, message, transaction, category, category_source, bank=bank
+                )
+                await persistence.resolve_unknown_by_message(db, message.gmail_message_id, transaction_id)
                 await db.commit()
                 inserted += 1
 

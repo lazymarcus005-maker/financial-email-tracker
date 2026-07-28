@@ -68,6 +68,26 @@ def test_from_to_bank_and_account_extraction():
     assert transaction.counterparty == "ธนาคารKBank 0148929335"
 
 
+def test_parses_inline_notification_layout():
+    email = """
+เรียน ลูกค้า
+
+ประเภทของรายการ:โอนเงินไปธนาคารอื่น
+รายละเอียด:จาก ธนาคารไทยพาณิชย์ เบอร์บัญชี xxxxxx8161
+ไปยัง ธนาคารKBank เบอร์บัญชี 0148929335
+จำนวนเงิน 10.00 บาท
+วันและเวลาการทำรายการ:28 ก.ค. 2569 ณ 07:16:35
+"""
+    transaction = SCBParser().parse(email)
+
+    assert transaction is not None
+    assert transaction.parse_status == "complete"
+    assert transaction.transaction_type == "bank_transfer"
+    assert transaction.amount == 10.0
+    assert transaction.raw_fields["to_bank"] == "ธนาคารKBank"
+    assert transaction.raw_fields["to_account"] == "0148929335"
+
+
 def test_all_raw_fields_captured():
     parser = SCBParser()
     transaction = parser.parse(SAMPLES[1])

@@ -10,6 +10,10 @@ from app.parsers.krungsri.aliases import to_canonical
 logger = logging.getLogger(__name__)
 
 _AMOUNT_RE = re.compile(r"[-+]?\d[\d,]*\.?\d*")
+_FOOTER_PREFIXES = (
+    "หากท่านไม่ได้เป็นผู้ทำรายการ",
+    "อีเมลฉบับนี้ เป็นการแจ้งข้อมูลโดยอัตโนมัติ",
+)
 
 # Krungsri timestamps look like "03/07/2569 19:21:13" (DD/MM/YYYY, Buddhist year).
 _DATETIME_RE = re.compile(
@@ -28,6 +32,7 @@ class CanonicalFields:
     counterparty: str | None = None
     amount: float | None = None
     fee: float | None = None
+    to_wallet: str | None = None
     merchant_code: str | None = None
     merchant_reference: str | None = None
     transaction_code: str | None = None
@@ -36,6 +41,7 @@ class CanonicalFields:
     reference_number: str | None = None
     occurred_at: str | None = None
     memo: str | None = None
+    recipient_memo: str | None = None
     raw_fields: dict = field(default_factory=dict)
     warnings: list = field(default_factory=list)
 
@@ -74,10 +80,19 @@ def _parse_occurred_at(raw: str) -> str | None:
     return dt.isoformat()
 
 
+def _clean_memo(raw: str) -> str:
+    value = raw.strip()
+    if any(value.startswith(prefix) for prefix in _FOOTER_PREFIXES):
+        return ""
+    return value
+
+
 _FIELD_PARSERS = {
     "amount": _parse_amount,
     "fee": _parse_amount,
     "occurred_at": _parse_occurred_at,
+    "memo": _clean_memo,
+    "recipient_memo": _clean_memo,
 }
 
 
@@ -105,6 +120,8 @@ def map_fields(raw_fields: list[tuple[str, str]]) -> CanonicalFields:
                     f"Could not parse '{field_name}' from value: {raw_value!r}"
                 )
                 continue
+            if field_name in {"memo", "recipient_memo"}:
+                canonical.raw_fields[key] = parsed_value
         else:
             parsed_value = raw_value
 

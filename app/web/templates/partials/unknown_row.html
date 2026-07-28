@@ -4,7 +4,12 @@
     <td class="px-4 py-3">{{ item.sender or '-' }}</td>
     <td class="px-4 py-3">{{ item.transaction_code or '-' }}</td>
     <td class="px-4 py-3 text-right">{% if item.amount is not none %}฿{{ '{:,.2f}'.format(item.amount) }}{% else %}-{% endif %}</td>
-    <td class="px-4 py-3"><span class="badge {% if item.status == 'pending' %}badge-warning{% else %}badge-neutral{% endif %}">{{ item.status }}</span></td>
+    <td class="px-4 py-3">
+        <span class="badge {% if item.status == 'pending' %}badge-warning{% elif item.status == 'resolved' %}badge-income{% else %}badge-neutral{% endif %}">{{ item.status }}</span>
+        {% if item.status == 'resolved' and item.resolved_transaction_id %}
+        <a href="/transactions/{{ item.resolved_transaction_id }}" class="block text-xs text-neutral-500 underline mt-0.5">Txn #{{ item.resolved_transaction_id }}</a>
+        {% endif %}
+    </td>
     <td class="px-4 py-3 text-xs text-neutral-500">
         {% if item.warnings %}
             {{ item.warnings|length }} warning(s): {{ item.warnings|join(', ') }}
@@ -13,6 +18,13 @@
         {% endif %}
     </td>
     <td class="px-4 py-3 whitespace-nowrap">
+        <button
+            class="px-2 py-1 rounded-md border border-neutral-300 text-xs hover:bg-neutral-100"
+            hx-get="/unknown/{{ item.id }}/modal"
+            hx-target="#modal-root"
+            hx-swap="innerHTML"
+        >View</button>
+        {% if item.status == 'pending' %}
         <button
             class="px-2 py-1 rounded-md border border-neutral-300 text-xs hover:bg-neutral-100"
             hx-post="/api/unknown/{{ item.id }}/ignore"
@@ -35,6 +47,7 @@
             hx-swap="outerHTML"
             hx-disabled-elt="this"
         >Reparse</button>
+        {% endif %}
         <button
             class="px-2 py-1 rounded-md border border-red-300 text-xs text-red-700 hover:bg-red-50"
             hx-delete="/api/unknown/{{ item.id }}"

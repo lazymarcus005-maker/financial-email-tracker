@@ -139,6 +139,13 @@ async def delete_transaction(db: aiosqlite.Connection, transaction_id: int) -> N
     await db.commit()
 
 
+async def get_transaction_id_by_gmail_message_id(db: aiosqlite.Connection, gmail_message_id: str) -> int | None:
+    cursor = await db.execute("SELECT id FROM transactions WHERE gmail_message_id = ?", (gmail_message_id,))
+    row = await cursor.fetchone()
+    await cursor.close()
+    return row["id"] if row else None
+
+
 # ---- Unknown patterns -------------------------------------------------------
 
 async def list_unknown(
@@ -581,6 +588,71 @@ async def get_expense_summary_windows(
         )
 
     return summaries
+
+
+async def get_expense_by_bank(db: aiosqlite.Connection, days: int = 7) -> list[dict]:
+    """Return total 'out' spend per bank over the last `days`, NULL bank as 'Unknown'."""
+    days = days if days in (7, 14, 30) else 7
+    end_day = date.today()
+    start_day = end_day - timedelta(days=days - 1)
+
+    cursor = await db.execute(
+        """
+        SELECT COALESCE(bank, 'Unknown') AS bank, COALESCE(SUM(amount), 0) AS total
+        FROM transactions
+        WHERE direction = 'out'
+          AND parse_status != 'ignored'
+          AND date(occurred_at) BETWEEN ? AND ?
+        GROUP BY COALESCE(bank, 'Unknown')
+        ORDER BY total DESC
+        """,
+        (start_day.isoformat(), end_day.isoformat()),
+    )
+    rows = await cursor.fetchall()
+    await cursor.close()
+    return [{"bank": r["bank"], "total": float(r["total"] or 0)} for r in rows]
+
+
+BANK_COLORS = {
+    "KBank": "#2a78d6",
+    "Krungsri": "#eb6834",
+    "LH Bank": "#1baf7a",
+    "SCB": "#eda100",
+    "Unknown": "#A3A3A3",
+}
+# Fixed ring order for donut slices. Slice adjacency is deterministic (NOT
+# magnitude-ordered) so the categorical palette's colorblind-safety — validated
+# for exactly this adjacency — holds regardless of each bank's share.
+CANONICAL_BANK_ORDER = ["KBank", "Krungsri", "LH Bank", "SCB", "Unknown"]
+_DONUT_CIRCUMFERENCE = 100.0  # SVG circle r chosen (15.9155) so circumference ~= 100
+
+
+def build_pie_segments(rows: list[dict]) -> list[dict]:
+    """Turn get_expense_by_bank rows into SVG donut stroke-dasharray/dashoffset
+    segments, emitted in fixed CANONICAL_BANK_ORDER so donut-slice adjacency is
+    deterministic (a validated colorblind-safe ordering)."""
+    def _order_key(row):
+        try:
+            return CANONICAL_BANK_ORDER.index(row["bank"])
+        except ValueError:
+            return len(CANONICAL_BANK_ORDER)
+
+    ordered = sorted(rows, key=_order_key)
+    total = sum(r["total"] for r in ordered)
+    segments = []
+    offset = 0.0
+    for r in ordered:
+        pct = (r["total"] / total * 100) if total else 0.0
+        segments.append({
+            "bank": r["bank"],
+            "total": r["total"],
+            "pct": pct,
+            "color": BANK_COLORS.get(r["bank"], "#A3A3A3"),
+            "dasharray": f"{pct:.4f} {_DONUT_CIRCUMFERENCE - pct:.4f}",
+            "dashoffset": f"{-offset:.4f}",
+        })
+        offset += pct
+    return segments
 
 
 async def get_daily_summary_data(db: aiosqlite.Connection, day: str | None = None) -> dict:

@@ -12,6 +12,15 @@ from app.parsers.kbank.validator import validate
 
 logger = logging.getLogger(__name__)
 
+_IGNORED_SUBJECT_MARKERS = (
+    "email statement",
+)
+
+
+def _is_ignored_subject(subject: str) -> bool:
+    subject_lower = (subject or "").lower()
+    return any(marker in subject_lower for marker in _IGNORED_SUBJECT_MARKERS)
+
 
 class KBankParser(BaseParser):
     """KBank (Kasikorn Bank) email parser."""
@@ -23,6 +32,21 @@ class KBankParser(BaseParser):
     def parse(self, email_text: str, subject: str = "") -> Transaction | None:
         """Parse a KBank notification email body into a canonical Transaction."""
         try:
+            if _is_ignored_subject(subject):
+                logger.info("KBankParser: ignoring non-transaction notification")
+                return Transaction(
+                    transaction_type="notification",
+                    direction="unknown",
+                    status="ignored",
+                    occurred_at="",
+                    amount=0.0,
+                    description=subject or None,
+                    parse_status="ignored",
+                    parse_confidence=1.0,
+                    parse_warnings=[],
+                    raw_fields={"ignored_reason": "non_transaction_notification"},
+                )
+
             normalized = normalize(email_text)
             section = detect_section(normalized)
             raw_fields = extract_fields(section.section_text)
