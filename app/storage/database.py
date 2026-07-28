@@ -102,6 +102,30 @@ CREATE TABLE IF NOT EXISTS ignored_subjects (
     UNIQUE(owner_user_id, subject)
 );
 
+-- Insurance policies
+CREATE TABLE IF NOT EXISTS insurance_policies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_user_id INTEGER,
+    insurer_name TEXT NOT NULL,
+    policy_name TEXT NOT NULL,
+    policy_number TEXT,
+    policy_type TEXT DEFAULT 'other',
+    insured_person TEXT,
+    logo_url TEXT,
+    premium_amount REAL,
+    premium_frequency TEXT DEFAULT 'annual',
+    coverage_amount REAL,
+    start_date DATE,
+    end_date DATE,
+    renewal_date DATE,
+    status TEXT DEFAULT 'active',
+    contact_phone TEXT,
+    contact_email TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Application users
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

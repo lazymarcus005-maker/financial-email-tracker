@@ -399,6 +399,92 @@ def test_mappings_are_scoped_per_user(client):
     assert viewer_client.get("/api/mappings").json()["items"][0]["category"] == "Subscriptions"
 
 
+def test_insurance_page_loads(client):
+    resp = client.get("/insurance")
+    assert resp.status_code == 200
+    assert "Insurance" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_insurance_crud_is_scoped_per_user(client, db_connection):
+    user_resp = client.post(
+        "/api/users",
+        json={
+            "email": "viewer@example.com",
+            "display_name": "Viewer",
+            "password": "viewer-password",
+            "role": "user",
+            "is_active": True,
+        },
+    )
+    assert user_resp.status_code == 201
+    viewer_id = user_resp.json()["id"]
+
+    create_resp = client.post(
+        "/api/insurance",
+        json={
+            "insurer_name": "AIA",
+            "policy_name": "Family Health",
+            "policy_number": "AIA-001",
+            "policy_type": "health",
+            "insured_person": "Marcus Y",
+            "logo_url": "https://example.com/logo.png",
+            "premium_amount": 1299.5,
+            "premium_frequency": "annual",
+            "coverage_amount": 1000000,
+            "start_date": "2026-01-01",
+            "end_date": "2026-12-31",
+            "renewal_date": "2026-12-01",
+            "status": "active",
+            "contact_phone": "02-111-2222",
+            "contact_email": "support@example.com",
+            "notes": "Company health plan",
+        },
+    )
+    assert create_resp.status_code == 201
+    assert create_resp.json()["items"][0]["logo_url"] == "https://example.com/logo.png"
+    admin_id = create_resp.json()["items"][0]["id"]
+
+    viewer_client = TestClient(app)
+    viewer_client.post(
+        "/login",
+        data={"email": "viewer@example.com", "password": "viewer-password", "next": "/"},
+        follow_redirects=False,
+    )
+    viewer_resp = viewer_client.post(
+        "/api/insurance",
+        json={
+            "insurer_name": "Bupa",
+            "policy_name": "Viewer Plan",
+            "status": "pending",
+        },
+    )
+    assert viewer_resp.status_code == 201
+    viewer_id_policy = viewer_resp.json()["items"][0]["id"]
+
+    list_resp = client.get("/api/insurance")
+    assert [item["id"] for item in list_resp.json()["items"]] == [admin_id]
+    assert viewer_client.get("/api/insurance").json()["items"][0]["id"] == viewer_id_policy
+
+    update_resp = client.patch(
+        f"/api/insurance/{admin_id}",
+        json={
+            "insurer_name": "AIA",
+            "policy_name": "Family Health Plus",
+            "policy_type": "health",
+            "status": "active",
+        },
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["items"][0]["policy_name"] == "Family Health Plus"
+    assert update_resp.json()["items"][0]["logo_url"] == "https://example.com/logo.png"
+
+    delete_resp = client.delete(f"/api/insurance/{admin_id}")
+    assert delete_resp.status_code == 204
+    assert client.get("/api/insurance").json()["items"] == []
+    assert viewer_client.get("/api/insurance").json()["items"][0]["id"] == viewer_id_policy
+
+
 # ---- Settings ------------------------------------------------------------------
 
 

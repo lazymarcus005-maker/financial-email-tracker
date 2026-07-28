@@ -17,6 +17,7 @@
         ('/transactions', 'Transactions', 'list'),
         ('/unknown', 'Unknown', 'help'),
         ('/mappings', 'Mappings', 'tag'),
+        ('/insurance', 'Insurance', 'shield'),
         ('/settings', 'Settings', 'settings'),
     ] %}
     {% if current_user and current_user.role == 'admin' %}
@@ -77,6 +78,8 @@
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.7c0 1.6-2.4 2-2.4 3.3"/><line x1="12" y1="17" x2="12" y2="17.01"/></svg>
             {% elif icon == 'tag' %}
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="8" r="2.5"/><circle cx="17" cy="16" r="2.5"/><line x1="9" y1="9.5" x2="15" y2="14.5"/></svg>
+            {% elif icon == 'shield' %}
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 20 6v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6l8-3Z"/><path d="M12 7v10"/><path d="M8.5 10.5 12 14l3.5-3.5"/></svg>
             {% elif icon == 'settings' %}
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="4" x2="6" y2="20"/><circle cx="6" cy="9" r="2"/><line x1="12" y1="4" x2="12" y2="20"/><circle cx="12" cy="15" r="2"/><line x1="18" y1="4" x2="18" y2="20"/><circle cx="18" cy="7" r="2"/></svg>
             {% elif icon == 'users' %}
