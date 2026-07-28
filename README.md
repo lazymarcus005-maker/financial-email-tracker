@@ -82,7 +82,6 @@ directly. See `.env.example` for the full list of variables:
 | `DATABASE_PATH` | Path to the SQLite file |
 | `AUTH_SECRET_KEY` | Secret used to sign login/session cookies |
 | `GMAIL_CREDENTIALS_PATH` | Gmail OAuth2 client JSON used by all users |
-| `GMAIL_TOKEN_PATH` | Legacy/shared Gmail token fallback for scheduler only |
 | `LINE_CHANNEL_ACCESS_TOKEN` / `LINE_USER_ID` | LINE Messaging API push target |
 | `AI_ENABLED` / `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | Optional AI-assisted categorization |
 | `TIMEZONE` | Cron schedule timezone (default `Asia/Bangkok`) |
@@ -106,9 +105,9 @@ yet, the first `/setup` admin claims existing runtime data.
 Gmail access is also per user. `secrets/credentials.json` is the shared OAuth
 client configuration, while user tokens are stored separately as
 `secrets/users/{user_id}/gmail-token.json`. Manual ingestion and reparse use
-the logged-in user's Gmail token. Scheduled ingestion uses the first active
-admin's Gmail token when available, then falls back to the legacy
-`GMAIL_TOKEN_PATH` token.
+the logged-in user's Gmail token. Scheduled ingestion runs separately for each
+active user that has connected Gmail. The app does not use a shared runtime
+Gmail token.
 
 ## API Endpoints
 
@@ -194,7 +193,7 @@ tests/
   test_performance.py  # Parse throughput + index-usage regression guards
 
 data/                  # SQLite database (gitignored)
-secrets/                # Gmail credentials.json, legacy token.json, per-user tokens (gitignored)
+secrets/                # Gmail credentials.json and per-user tokens (gitignored)
 ```
 
 ## Troubleshooting
@@ -218,9 +217,8 @@ secrets/                # Gmail credentials.json, legacy token.json, per-user to
   exactly match the app URL, e.g.
   `http://localhost:8000/gmail/oauth2/callback` locally or
   `https://your-domain/gmail/oauth2/callback` in production.
-- **Gmail 401 / re-auth loop** - for per-user connections, use Settings →
-  Disconnect and Connect Gmail again. For the legacy scheduler fallback,
-  delete `secrets/token.json` and re-run `python -m app.gmail.authorize`.
+- **Gmail 401 / re-auth loop** - use Settings → Disconnect and Connect Gmail
+  again for the affected logged-in user.
 - **LINE summary never arrives** - `GET /api/settings` shows
   `line_configured`; if `false`, `LINE_CHANNEL_ACCESS_TOKEN`/`LINE_USER_ID`
   aren't set. Check the `daily_summary_sent` / `ingestion_error` events in

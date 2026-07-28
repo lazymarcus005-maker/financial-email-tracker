@@ -55,7 +55,7 @@ def test_run_ingestion_job_logs_start_and_finish(monkeypatch, caplog):
         return {"emails_checked": 2, "inserted": 1, "duplicates": 1, "failed": 0}
 
     async def fake_connected_active_user_ids():
-        return []
+        return [1]
 
     monkeypatch.setattr(scheduler, "run_ingestion", fake_run_ingestion)
     monkeypatch.setattr(scheduler, "_connected_active_user_ids", fake_connected_active_user_ids)
@@ -67,6 +67,24 @@ def test_run_ingestion_job_logs_start_and_finish(monkeypatch, caplog):
     events = [json.loads(r.message) for r in caplog.records if r.message.startswith("{")]
     assert {"event": "cron_start", "job": "ingestion"} in events
     assert any(e.get("event") == "cron_finish" and e.get("job") == "ingestion" for e in events)
+
+
+def test_run_ingestion_job_without_connected_users_does_not_use_shared_token(monkeypatch, caplog):
+    async def fake_run_ingestion(query, engine=None, owner_user_id=None):
+        raise AssertionError("run_ingestion should not be called without a connected user")
+
+    async def fake_connected_active_user_ids():
+        return []
+
+    monkeypatch.setattr(scheduler, "run_ingestion", fake_run_ingestion)
+    monkeypatch.setattr(scheduler, "_connected_active_user_ids", fake_connected_active_user_ids)
+
+    with caplog.at_level("INFO"):
+        summary = scheduler.run_ingestion_job(_settings())
+
+    assert summary == {"emails_checked": 0, "inserted": 0, "duplicates": 0, "failed": 0}
+    events = [json.loads(r.message) for r in caplog.records if r.message.startswith("{")]
+    assert any(e.get("event") == "cron_no_connected_users" for e in events)
 
 
 def test_run_ingestion_job_runs_each_connected_active_user(monkeypatch, caplog):
@@ -92,12 +110,12 @@ def test_run_ingestion_job_runs_each_connected_active_user(monkeypatch, caplog):
     assert any(e.get("event") == "cron_user_finish" and e.get("owner_user_id") == 2 for e in events)
 
 
-def test_run_ingestion_job_logs_error_and_returns_none_on_exception(monkeypatch, caplog):
+def test_run_ingestion_job_logs_user_error_and_continues(monkeypatch, caplog):
     async def fake_run_ingestion(query, engine=None, owner_user_id=None):
         raise RuntimeError("gmail is down")
 
     async def fake_connected_active_user_ids():
-        return []
+        return [1]
 
     monkeypatch.setattr(scheduler, "run_ingestion", fake_run_ingestion)
     monkeypatch.setattr(scheduler, "_connected_active_user_ids", fake_connected_active_user_ids)
@@ -105,7 +123,7 @@ def test_run_ingestion_job_logs_error_and_returns_none_on_exception(monkeypatch,
     with caplog.at_level("INFO"):
         result = scheduler.run_ingestion_job(_settings())
 
-    assert result is None
+    assert result == {"emails_checked": 0, "inserted": 0, "duplicates": 0, "failed": 0}
     events = [json.loads(r.message) for r in caplog.records if r.message.startswith("{")]
     assert any(e.get("event") == "ingestion_error" and "gmail is down" in e.get("error", "") for e in events)
 

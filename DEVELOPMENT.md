@@ -46,17 +46,12 @@ uvicorn app.web.main:app --reload
 
 # Or run just the scheduler standalone (no web server)
 python -m app.ingestion.scheduler
-
-# One-off Gmail OAuth login (opens a browser, writes secrets/token.json)
-python -m app.gmail.authorize
 ```
 
 On a fresh local database, open `http://localhost:8000/setup` and create the
 first admin user. After login, use `/settings` → **Connect Gmail** to create a
-per-user Gmail token at `secrets/users/{user_id}/gmail-token.json`. The CLI
-`python -m app.gmail.authorize` command is still useful for generating the
-legacy shared `secrets/token.json` scheduler fallback, but manual web
-ingestion uses the logged-in user's token.
+per-user Gmail token at `secrets/users/{user_id}/gmail-token.json`. Manual
+web ingestion, reparse, and scheduled ingestion all use per-user tokens only.
 
 `config.yaml` controls the cron schedule (`SCHEDULE`, in `TIMEZONE`) and the
 Gmail search query (`GMAIL_QUERY`). Any scalar setting can be overridden by

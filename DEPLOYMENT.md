@@ -39,15 +39,9 @@ Existing runtime data is assigned to that first admin during migration/setup.
 4. Each user connects Gmail from `/settings`. The app stores a readonly Gmail
    token per user at `secrets/users/{user_id}/gmail-token.json`. Manual
    ingestion and reparse use the logged-in user's token.
-5. Scheduled ingestion runs once per active user that has connected Gmail. If
-   no per-user Gmail tokens exist, you can still use the optional legacy
-   fallback token with the CLI flow:
-   ```bash
-   python -m venv venv && source venv/bin/activate
-   pip install -r requirements.txt
-   python -m app.gmail.authorize
-   ```
-   This writes `secrets/token.json`.
+5. Scheduled ingestion runs once per active user that has connected Gmail.
+   Users without a per-user token are skipped. There is no shared Gmail token
+   fallback.
 6. The scope requested is `gmail.readonly` - the app never sends, deletes, or
    modifies mail.
 7. Files under `secrets/` are picked up by the container via the
@@ -68,8 +62,7 @@ PUBLIC_BASE_URL=https://kplus.mxlabs.cloud
 
 Token refresh is automatic (`app/gmail/authorize.py` refreshes expired tokens
 using stored refresh tokens). If refresh fails for a user, open Settings,
-disconnect Gmail, and connect again. If the legacy fallback token fails,
-delete `secrets/token.json` and repeat the CLI flow.
+disconnect Gmail, and connect again.
 
 ## 3. LINE Bot setup
 

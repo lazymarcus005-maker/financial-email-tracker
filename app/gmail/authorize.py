@@ -1,4 +1,4 @@
-"""Gmail OAuth2 authorization - obtain and refresh credentials, persist token.json."""
+"""Gmail OAuth2 authorization - obtain and refresh per-user credentials."""
 
 import logging
 import os
@@ -7,14 +7,13 @@ from pathlib import Path
 from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow, InstalledAppFlow
+from google_auth_oauthlib.flow import Flow
 
 logger = logging.getLogger(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
 DEFAULT_CREDENTIALS_PATH = Path("secrets/credentials.json")
-DEFAULT_TOKEN_PATH = Path("secrets/token.json")
 USER_TOKEN_ROOT = Path("secrets/users")
 
 
@@ -28,16 +27,21 @@ def token_exists(token_path: Path | str) -> bool:
 
 def get_credentials(
     credentials_path: Path | str = DEFAULT_CREDENTIALS_PATH,
-    token_path: Path | str = DEFAULT_TOKEN_PATH,
+    token_path: Path | str | None = None,
 ) -> Credentials:
     """Return valid OAuth2 credentials, refreshing or running the auth flow as needed."""
+    if token_path is None:
+        raise ValueError("Gmail token_path is required; use user_token_path(user_id)")
+
     credentials_path = Path(credentials_path)
     token_path = Path(token_path)
 
     creds: Credentials | None = None
 
-    if token_path.exists():
-        creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+    if not token_path.exists():
+        raise FileNotFoundError(f"Gmail OAuth token not found at {token_path}. Connect Gmail in Settings.")
+
+    creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
 
     if creds and creds.valid:
         return creds
@@ -49,20 +53,10 @@ def get_credentials(
             _save_token(creds, token_path)
             return creds
         except RefreshError:
-            logger.warning("Token refresh failed, falling back to full OAuth flow")
-            creds = None
+            logger.warning("Token refresh failed for %s", token_path)
+            raise
 
-    if not credentials_path.exists():
-        raise FileNotFoundError(
-            f"Gmail OAuth client credentials not found at {credentials_path}. "
-            "Download it from Google Cloud Console and save it there."
-        )
-
-    logger.info("Starting Gmail OAuth2 authorization flow")
-    flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), SCOPES)
-    creds = flow.run_local_server(port=0)
-    _save_token(creds, token_path)
-    return creds
+    raise RuntimeError(f"Gmail OAuth token at {token_path} is invalid. Reconnect Gmail in Settings.")
 
 
 def _save_token(creds: Credentials, token_path: Path) -> None:
@@ -111,5 +105,4 @@ def exchange_authorization_response(
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    get_credentials()
-    logger.info("Gmail authorization complete.")
+    raise SystemExit("Use the web Settings page to connect Gmail per user.")

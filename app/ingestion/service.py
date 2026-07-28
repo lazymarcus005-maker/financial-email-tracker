@@ -52,18 +52,14 @@ async def run_ingestion(
             effective_reader = reader
             if effective_reader is None:
                 settings = get_settings()
-                token_path = user_token_path(effective_owner_id) if effective_owner_id is not None else None
-                if token_path is not None and token_exists(token_path):
-                    effective_reader = GmailReader(
-                        GmailClient(credentials_path=settings.GMAIL_CREDENTIALS_PATH, token_path=token_path)
-                    )
-                else:
-                    effective_reader = GmailReader(
-                        GmailClient(
-                            credentials_path=settings.GMAIL_CREDENTIALS_PATH,
-                            token_path=settings.GMAIL_TOKEN_PATH,
-                        )
-                    )
+                if effective_owner_id is None:
+                    raise RuntimeError("No active user found for Gmail ingestion")
+                token_path = user_token_path(effective_owner_id)
+                if not token_exists(token_path):
+                    raise RuntimeError(f"Connect Gmail for user {effective_owner_id} before running ingestion")
+                effective_reader = GmailReader(
+                    GmailClient(credentials_path=settings.GMAIL_CREDENTIALS_PATH, token_path=token_path)
+                )
 
             effective_query = await queries.apply_ignored_subjects_to_gmail_query(
                 db, query, owner_user_id=effective_owner_id

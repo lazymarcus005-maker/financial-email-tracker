@@ -16,6 +16,7 @@ from app.gmail.authorize import (
     token_exists,
     user_token_path,
 )
+from app.gmail.client import GmailClient
 from app.storage import queries
 from app.web.deps import get_current_user_id, get_db, templates
 
@@ -53,6 +54,16 @@ def _masked_gmail_client_id(credentials_path: str) -> str:
     return f"{client_id[:8]}...{client_id[-16:]}"
 
 
+def _gmail_profile_email(settings: Settings, owner_user_id: int) -> str | None:
+    token_path = user_token_path(owner_user_id)
+    if not token_exists(token_path):
+        return None
+    return GmailClient(
+        credentials_path=settings.GMAIL_CREDENTIALS_PATH,
+        token_path=token_path,
+    ).get_profile_email()
+
+
 def _safe_settings(settings: Settings) -> dict:
     """Return settings safe to show in the UI - no tokens/credentials."""
     return {
@@ -77,6 +88,7 @@ async def get_settings_view(
 ):
     data = _safe_settings(settings)
     data["gmail_connected"] = token_exists(user_token_path(owner_user_id))
+    data["gmail_profile_email"] = _gmail_profile_email(settings, owner_user_id)
     data["gmail_redirect_uri"] = _public_url_for(request, "gmail_oauth_callback", settings)
     data["gmail_oauth_client_id"] = _masked_gmail_client_id(settings.GMAIL_CREDENTIALS_PATH)
     return data
@@ -132,8 +144,13 @@ async def import_data(
 
 
 @router.get("/gmail/status")
-async def gmail_status(owner_user_id: int = Depends(get_current_user_id)):
-    return {"connected": token_exists(user_token_path(owner_user_id))}
+async def gmail_status(
+    settings: Settings = Depends(get_settings),
+    owner_user_id: int = Depends(get_current_user_id),
+):
+    token_path = user_token_path(owner_user_id)
+    connected = token_exists(token_path)
+    return {"connected": connected, "profile_email": _gmail_profile_email(settings, owner_user_id)}
 
 
 @router.post("/gmail/disconnect")
@@ -203,6 +220,7 @@ async def settings_page(
 ):
     safe_settings = _safe_settings(settings)
     safe_settings["gmail_connected"] = token_exists(user_token_path(owner_user_id))
+    safe_settings["gmail_profile_email"] = _gmail_profile_email(settings, owner_user_id)
     safe_settings["gmail_redirect_uri"] = _public_url_for(request, "gmail_oauth_callback", settings)
     safe_settings["gmail_oauth_client_id"] = _masked_gmail_client_id(settings.GMAIL_CREDENTIALS_PATH)
     return templates.TemplateResponse(request, "settings.html", {"settings": safe_settings})

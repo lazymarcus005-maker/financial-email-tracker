@@ -78,7 +78,7 @@ async def _run_ingestion_for_connected_users(settings: Settings) -> dict:
     owner_ids = await _connected_active_user_ids()
     if not owner_ids:
         _log_event("cron_no_connected_users", job="ingestion")
-        return await run_ingestion(settings.GMAIL_QUERY, engine=_build_engine(settings))
+        return _empty_summary()
 
     total = _empty_summary()
     for owner_user_id in owner_ids:

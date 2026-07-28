@@ -52,13 +52,13 @@ async def reparse_transaction(
         return {"status": "not_found"}
 
     settings = get_settings()
-    if gmail_client is None and owner_user_id is not None and token_exists(user_token_path(owner_user_id)):
-        gmail_client = GmailClient(credentials_path=settings.GMAIL_CREDENTIALS_PATH, token_path=user_token_path(owner_user_id))
-    else:
-        gmail_client = gmail_client or GmailClient(
-            credentials_path=settings.GMAIL_CREDENTIALS_PATH,
-            token_path=settings.GMAIL_TOKEN_PATH,
-        )
+    if gmail_client is None:
+        if owner_user_id is None:
+            raise RuntimeError("No active user found for Gmail reparse")
+        token_path = user_token_path(owner_user_id)
+        if not token_exists(token_path):
+            raise RuntimeError(f"Connect Gmail for user {owner_user_id} before running reparse")
+        gmail_client = GmailClient(credentials_path=settings.GMAIL_CREDENTIALS_PATH, token_path=token_path)
     registry = registry or ParserRegistry()
     engine = engine or CategoryEngine()
 
@@ -140,13 +140,13 @@ async def reparse_unknown(
         return {"status": "not_found"}
 
     settings = get_settings()
-    if gmail_client is None and owner_user_id is not None and token_exists(user_token_path(owner_user_id)):
-        gmail_client = GmailClient(credentials_path=settings.GMAIL_CREDENTIALS_PATH, token_path=user_token_path(owner_user_id))
-    else:
-        gmail_client = gmail_client or GmailClient(
-            credentials_path=settings.GMAIL_CREDENTIALS_PATH,
-            token_path=settings.GMAIL_TOKEN_PATH,
-        )
+    if gmail_client is None:
+        if owner_user_id is None:
+            raise RuntimeError("No active user found for Gmail reparse")
+        token_path = user_token_path(owner_user_id)
+        if not token_exists(token_path):
+            raise RuntimeError(f"Connect Gmail for user {owner_user_id} before running reparse")
+        gmail_client = GmailClient(credentials_path=settings.GMAIL_CREDENTIALS_PATH, token_path=token_path)
     registry = registry or ParserRegistry()
     engine = engine or CategoryEngine()
 

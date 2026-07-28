@@ -35,7 +35,6 @@ class Settings:
 
     GMAIL_QUERY: str = ""
     GMAIL_CREDENTIALS_PATH: str = "secrets/credentials.json"
-    GMAIL_TOKEN_PATH: str = "secrets/token.json"
 
     DATABASE_PATH: str = "data/finance.db"
 

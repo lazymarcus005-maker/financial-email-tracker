@@ -317,10 +317,36 @@ async def test_runtime_data_is_scoped_per_user(client, db_connection):
         gmail_message_id="msg-viewer",
         counterparty="Viewer Shop",
     )
+    admin_unknown_id = await _insert_unknown(db_connection, gmail_message_id="unknown-admin")
+    viewer_unknown_id = await _insert_unknown(
+        db_connection,
+        owner_user_id=viewer_id,
+        gmail_message_id="unknown-viewer",
+        subject="Viewer Unknown",
+    )
+    admin_run = await db_connection.execute(
+        """
+        INSERT INTO ingestion_runs (owner_user_id, emails_checked, inserted, duplicates, failed, duration_seconds)
+        VALUES (?, 1, 1, 0, 0, 0.1)
+        """,
+        (1,),
+    )
+    viewer_run = await db_connection.execute(
+        """
+        INSERT INTO ingestion_runs (owner_user_id, emails_checked, inserted, duplicates, failed, duration_seconds)
+        VALUES (?, 2, 2, 0, 0, 0.2)
+        """,
+        (viewer_id,),
+    )
+    await db_connection.commit()
 
     admin_list = client.get("/api/transactions").json()
     assert [item["id"] for item in admin_list["items"]] == [admin_tx_id]
     assert client.get(f"/api/transactions/{viewer_tx_id}").status_code == 404
+    admin_unknown = client.get("/api/unknown").json()
+    assert [item["id"] for item in admin_unknown["items"]] == [admin_unknown_id]
+    admin_runs = client.get("/api/runs").json()
+    assert [item["id"] for item in admin_runs["items"]] == [admin_run.lastrowid]
 
     viewer_client = TestClient(app)
     login_resp = viewer_client.post(
@@ -333,6 +359,10 @@ async def test_runtime_data_is_scoped_per_user(client, db_connection):
     viewer_list = viewer_client.get("/api/transactions").json()
     assert [item["id"] for item in viewer_list["items"]] == [viewer_tx_id]
     assert viewer_client.get(f"/api/transactions/{admin_tx_id}").status_code == 404
+    viewer_unknown = viewer_client.get("/api/unknown").json()
+    assert [item["id"] for item in viewer_unknown["items"]] == [viewer_unknown_id]
+    viewer_runs = viewer_client.get("/api/runs").json()
+    assert [item["id"] for item in viewer_runs["items"]] == [viewer_run.lastrowid]
 
 
 def test_mappings_are_scoped_per_user(client):
@@ -382,7 +412,7 @@ def test_settings_api_exposes_no_secrets(client):
     assert set(body) == {
         "gmail_query", "database_path", "schedule", "timezone", "ai_enabled",
         "ollama_base_url", "ollama_model", "parser_version", "line_configured", "log_level",
-        "gmail_connected", "gmail_redirect_uri", "gmail_oauth_client_id",
+        "gmail_connected", "gmail_profile_email", "gmail_redirect_uri", "gmail_oauth_client_id",
     }
 
 
@@ -401,7 +431,7 @@ def test_gmail_status_is_per_user(client):
 
     resp = client.get("/api/gmail/status")
     assert resp.status_code == 200
-    assert resp.json() == {"connected": False}
+    assert resp.json() == {"connected": False, "profile_email": None}
 
     viewer_client = TestClient(app)
     viewer_client.post(
@@ -411,7 +441,7 @@ def test_gmail_status_is_per_user(client):
     )
     viewer_resp = viewer_client.get("/api/gmail/status")
     assert viewer_resp.status_code == 200
-    assert viewer_resp.json() == {"connected": False}
+    assert viewer_resp.json() == {"connected": False, "profile_email": None}
 
 
 def test_settings_page_loads(client):

@@ -95,7 +95,7 @@ async def update_transaction(
         category = form.get("category")
         ignore_raw = form.get("ignore")
         if ignore_raw is not None:
-            await queries.set_transaction_ignored(db, transaction_id, ignore_raw == "true")
+            await queries.set_transaction_ignored(db, transaction_id, ignore_raw == "true", owner_user_id=owner_user_id)
     else:
         body = await request.json()
         category = body.get("category")

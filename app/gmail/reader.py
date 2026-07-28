@@ -17,8 +17,8 @@ _BLANK_LINES_RE = re.compile(r"\n{3,}")
 class GmailReader:
     """Reads bank notification emails from Gmail and returns clean EmailMessage objects."""
 
-    def __init__(self, client: GmailClient | None = None):
-        self.client = client or GmailClient()
+    def __init__(self, client: GmailClient):
+        self.client = client
 
     def read(self, query: str, max_results: int = 100) -> list[EmailMessage]:
         """Fetch emails matching query, ensuring body_text is always populated."""

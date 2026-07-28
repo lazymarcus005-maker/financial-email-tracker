@@ -18,6 +18,10 @@ class GmailClient:
     """Thin wrapper around the Gmail API for searching and fetching messages."""
 
     def __init__(self, credentials_path=None, token_path=None):
+        if token_path is None:
+            raise ValueError("GmailClient requires a per-user token_path")
+        self.token_path = str(token_path) if token_path is not None else None
+        self._profile_email: str | None = None
         kwargs = {}
         if credentials_path is not None:
             kwargs["credentials_path"] = credentials_path
@@ -26,10 +30,23 @@ class GmailClient:
         creds = get_credentials(**kwargs)
         self.service = build("gmail", "v1", credentials=creds, cache_discovery=False)
 
+    def get_profile_email(self) -> str | None:
+        """Return the Gmail address behind the current OAuth token."""
+        if self._profile_email is not None:
+            return self._profile_email
+        try:
+            profile = self.service.users().getProfile(userId="me").execute()
+            self._profile_email = profile.get("emailAddress")
+        except Exception as e:
+            logger.warning("Could not read Gmail profile for token_path=%s: %s", self.token_path, e)
+            self._profile_email = None
+        return self._profile_email
+
     def search_message_ids(self, query: str, max_results: int = 100) -> list[str]:
         """Search Gmail for message ids matching a query, paginating as needed."""
         message_ids: list[str] = []
         page_token = None
+        profile_email = self.get_profile_email()
 
         while True:
             try:
@@ -54,7 +71,13 @@ class GmailClient:
             if not page_token or len(message_ids) >= max_results:
                 break
 
-        logger.info(f"Gmail search '{query}' matched {len(message_ids)} messages")
+        logger.info(
+            "Gmail search %r matched %s messages for profile=%s token_path=%s",
+            query,
+            len(message_ids),
+            profile_email or "unknown",
+            self.token_path or "default",
+        )
         return message_ids[:max_results]
 
     def get_message(self, message_id: str) -> EmailMessage:
