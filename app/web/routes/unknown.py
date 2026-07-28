@@ -135,7 +135,6 @@ async def promote_unknown(
         counterparty=counterparty,
         description=description,
     )
-    await db.commit()
     await persistence.resolve_unknown(db, unknown_id, transaction_id)
     await db.commit()
 
