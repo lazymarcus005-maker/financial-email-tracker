@@ -39,16 +39,15 @@ Existing runtime data is assigned to that first admin during migration/setup.
 4. Each user connects Gmail from `/settings`. The app stores a readonly Gmail
    token per user at `secrets/users/{user_id}/gmail-token.json`. Manual
    ingestion and reparse use the logged-in user's token.
-5. Optional legacy fallback for scheduled ingestion: you can still create a
-   shared token with the CLI flow:
+5. Scheduled ingestion runs once per active user that has connected Gmail. If
+   no per-user Gmail tokens exist, you can still use the optional legacy
+   fallback token with the CLI flow:
    ```bash
    python -m venv venv && source venv/bin/activate
    pip install -r requirements.txt
    python -m app.gmail.authorize
    ```
-   This writes `secrets/token.json`. Scheduled ingestion uses the first
-   active admin's per-user token when available, then falls back to this
-   legacy shared token.
+   This writes `secrets/token.json`.
 6. The scope requested is `gmail.readonly` - the app never sends, deletes, or
    modifies mail.
 7. Files under `secrets/` are picked up by the container via the
@@ -58,7 +57,7 @@ Existing runtime data is assigned to that first admin during migration/setup.
    and `logs/` before starting the app so tokens remain readable and
    refreshable after deploy.
 8. Set `GMAIL_QUERY` in `config.yaml` to scope which emails are ingested,
-   e.g. `from:(KPLUS@kasikornbank.com) newer_than:90d`.
+   e.g. `{from:KPLUS@kasikornbank.com from:LHBYou@lhbank.co.th} newer_than:90d`.
 
 Set the public base URL in `.env` so the app sends the same redirect URI that
 Google Cloud expects:

@@ -10,11 +10,12 @@ from apscheduler.triggers.cron import CronTrigger
 
 from app.classification.engine import CategoryEngine
 from app.config import Settings, get_settings
+from app.gmail.authorize import token_exists, user_token_path
 from app.ingestion.service import run_ingestion
 from app.integrations.line import format_daily_summary, send_message
 from app.logging_config import log_event
 from app.storage.database import get_connection
-from app.storage.queries import get_daily_summary_data, get_default_owner_user_id
+from app.storage.queries import get_daily_summary_data, get_default_owner_user_id, list_users
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +56,51 @@ def next_scheduled_run(settings: Settings, now: datetime | None = None) -> datet
     return datetime(tomorrow.year, tomorrow.month, tomorrow.day, hour, minute, tzinfo=tz)
 
 
+def _empty_summary() -> dict:
+    return {"emails_checked": 0, "inserted": 0, "duplicates": 0, "failed": 0}
+
+
+def _add_summary(total: dict, summary: dict) -> None:
+    for key in ("emails_checked", "inserted", "duplicates", "failed"):
+        total[key] = total.get(key, 0) + summary.get(key, 0)
+
+
+async def _connected_active_user_ids() -> list[int]:
+    db = await get_connection()
+    try:
+        users = await list_users(db)
+    finally:
+        await db.close()
+    return [user["id"] for user in users if user.get("is_active") and token_exists(user_token_path(user["id"]))]
+
+
+async def _run_ingestion_for_connected_users(settings: Settings) -> dict:
+    owner_ids = await _connected_active_user_ids()
+    if not owner_ids:
+        _log_event("cron_no_connected_users", job="ingestion")
+        return await run_ingestion(settings.GMAIL_QUERY, engine=_build_engine(settings))
+
+    total = _empty_summary()
+    for owner_user_id in owner_ids:
+        try:
+            summary = await run_ingestion(
+                settings.GMAIL_QUERY,
+                engine=_build_engine(settings),
+                owner_user_id=owner_user_id,
+            )
+            _add_summary(total, summary)
+            _log_event("cron_user_finish", job="ingestion", owner_user_id=owner_user_id, **summary)
+        except Exception as e:
+            logger.exception("Ingestion cron job failed for user %s", owner_user_id)
+            _log_event("ingestion_error", job="ingestion", owner_user_id=owner_user_id, error=str(e))
+    return total
+
+
 def run_ingestion_job(settings: Settings) -> dict | None:
     """Run one ingestion pass. Synchronous entry point suitable for APScheduler."""
     _log_event("cron_start", job="ingestion")
     try:
-        summary = asyncio.run(run_ingestion(settings.GMAIL_QUERY, engine=_build_engine(settings)))
+        summary = asyncio.run(_run_ingestion_for_connected_users(settings))
         _log_event("cron_finish", job="ingestion", **summary)
         return summary
     except Exception as e:

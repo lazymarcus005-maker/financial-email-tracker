@@ -208,10 +208,12 @@ secrets/                # Gmail credentials.json, legacy token.json, per-user to
 - **Manual ingestion says Gmail must be connected** - login as that user,
   open `/settings`, and click **Connect Gmail**. Each user needs their own
   Gmail connection.
-- **No transactions after ingestion runs** - check `/api/unknown` for emails
-  that failed to parse, and their `warnings`. A KBank email with an unusual
-  wording can end up with `parse_status: partial` (still inserted) or
-  `failed` (logged to `unknown_patterns`, not inserted).
+- **No transactions after ingestion runs** - first check the run result or log
+  line `Gmail search ... matched N messages`. If it says `matched 0`, loosen
+  `GMAIL_QUERY` or choose a wider window; the default query uses Gmail's
+  grouped OR syntax like `{from:KPLUS@kasikornbank.com from:LHBYou@lhbank.co.th}`.
+  If Gmail matched emails but nothing was saved, check `/api/unknown` for
+  parser warnings.
 - **Gmail OAuth redirect mismatch** - the redirect URI in Google Cloud must
   exactly match the app URL, e.g.
   `http://localhost:8000/gmail/oauth2/callback` locally or

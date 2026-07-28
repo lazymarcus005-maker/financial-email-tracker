@@ -1,5 +1,6 @@
 """Ingestion routes - run history, trigger a run now, retry failed messages."""
 
+import html
 import logging
 import re
 
@@ -8,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
 
 from app.classification.engine import CategoryEngine
-from app.config import Settings, get_settings
+from app.config import get_settings
 from app.gmail.client import GmailClient
 from app.gmail.reader import GmailReader
 from app.ingestion.reparse import reparse_unknown
@@ -47,9 +48,9 @@ def _query_for_window(base_query: str, window: str) -> str:
     return f"{query} newer_than:{days}d"
 
 
-def _ingestion_control_html(button_text: str, selected_window: str = "default") -> str:
+def _ingestion_control_html(button_text: str, selected_window: str = "default", status_text: str | None = None) -> str:
     options = {
-        "default": "Default",
+        "default": "Configured",
         "last_7_days": "Last 7 days",
         "last_30_days": "Last 30 days",
         "last_90_days": "Last 90 days",
@@ -58,6 +59,9 @@ def _ingestion_control_html(button_text: str, selected_window: str = "default") 
         f'<option value="{value}" {"selected" if value == selected_window else ""}>{label}</option>'
         for value, label in options.items()
     )
+    status_html = ""
+    if status_text:
+        status_html = f'<div class="basis-full text-xs text-neutral-500">{html.escape(status_text)}</div>'
     return f"""<form id="ingestion-run" class="flex flex-wrap items-center gap-2">
     <select name="window" class="input w-32">
         {option_html}
@@ -75,9 +79,20 @@ def _ingestion_control_html(button_text: str, selected_window: str = "default") 
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
             </svg>
         </span>
-        <span class="button-text">{button_text}</span>
+        <span class="button-text">{html.escape(button_text)}</span>
     </button>
+    {status_html}
 </form>"""
+
+
+def _summary_status_text(summary: dict, window: str) -> str:
+    scanned = summary.get("emails_checked", 0)
+    inserted = summary.get("inserted", 0)
+    duplicates = summary.get("duplicates", 0)
+    failed = summary.get("failed", 0)
+    if scanned == 0:
+        return f"0 scanned for {window}; Gmail search found no matching email."
+    return f"{scanned} scanned, {inserted} saved, {duplicates} duplicate, {failed} failed."
 
 
 @router.get("/runs")
@@ -108,11 +123,12 @@ async def trigger_run(
         raise HTTPException(status_code=409, detail=str(e)) from e
 
     if request.headers.get("hx-request") == "true":
+        status_text = _summary_status_text(summary, window)
         button_text = (
-            f"Done: {summary.get('inserted', 0)} new, "
-            f"{summary.get('duplicates', 0)} dup, {summary.get('failed', 0)} failed"
+            f"Done: {summary.get('emails_checked', 0)} scanned, "
+            f"{summary.get('inserted', 0)} new"
         )
-        return HTMLResponse(_ingestion_control_html(button_text, selected_window=window))
+        return HTMLResponse(_ingestion_control_html(button_text, selected_window=window, status_text=status_text))
 
     return summary
 

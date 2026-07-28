@@ -964,8 +964,24 @@ def test_trigger_ingestion_run_accepts_window(client, monkeypatch):
 
     assert resp.status_code == 200
     assert "newer_than:30d" in captured["query"]
-    assert "newer_than:2d" not in captured["query"]
+    assert "newer_than:90d" not in captured["query"]
     assert captured["owner_user_id"] == 1
+
+
+def test_trigger_ingestion_run_htmx_reports_scanned_count(client, monkeypatch):
+    async def fake_run_ingestion(query, reader=None, engine=None, owner_user_id=None):
+        return {"emails_checked": 0, "inserted": 0, "duplicates": 0, "failed": 0}
+
+    monkeypatch.setattr(ingestion_routes, "run_ingestion", fake_run_ingestion)
+
+    resp = client.post(
+        "/api/ingestion/run",
+        headers={"HX-Request": "true"},
+    )
+
+    assert resp.status_code == 200
+    assert "Done: 0 scanned, 0 new" in resp.text
+    assert "Gmail search found no matching email" in resp.text
 
 
 def test_trigger_ingestion_run_returns_409_when_already_running(client, monkeypatch):

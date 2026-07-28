@@ -1,7 +1,7 @@
 # Financial Email Tracker Config
 
 # Gmail
-GMAIL_QUERY: "from:(KPLUS@kasikornbank.com OR admin@krungsri.com OR scbeasynet@scb.co.th OR LHBYou@lhbank.co.th) newer_than:2d -subject:\"Login Notification\""
+GMAIL_QUERY: "{from:KPLUS@kasikornbank.com from:admin@krungsri.com from:scbeasynet@scb.co.th from:LHBYou@lhbank.co.th} newer_than:90d -subject:\"Login Notification\""
 GMAIL_CREDENTIALS_PATH: "secrets/credentials.json"
 # Legacy/shared scheduler fallback. Normal manual ingestion uses per-user
 # tokens under secrets/users/{user_id}/gmail-token.json.
