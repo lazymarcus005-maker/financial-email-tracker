@@ -185,3 +185,10 @@ def test_next_scheduled_run_wraps_to_tomorrow():
 def test_next_scheduled_run_returns_none_for_empty_schedule():
     settings = _settings(SCHEDULE=[])
     assert scheduler.next_scheduled_run(settings) is None
+
+
+def test_next_scheduled_run_skips_slot_at_exact_now():
+    settings = _settings()
+    now = datetime(2026, 7, 28, 10, 0, tzinfo=ZoneInfo("Asia/Bangkok"))
+    result = scheduler.next_scheduled_run(settings, now=now)
+    assert result == datetime(2026, 7, 28, 14, 0, tzinfo=ZoneInfo("Asia/Bangkok"))
