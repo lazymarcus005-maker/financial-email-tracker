@@ -122,11 +122,6 @@ async def insert_unknown(db, message: EmailMessage, transaction: Transaction | N
     logger.warning(f"Could not parse message {message.gmail_message_id} ({message.subject!r}); logged as unknown")
 
 
-async def clear_unknown(db, gmail_message_id: str) -> None:
-    """Remove a previously-failed unknown row once the message parses successfully."""
-    await db.execute("DELETE FROM unknown_patterns WHERE gmail_message_id = ?", (gmail_message_id,))
-
-
 async def resolve_unknown(db, unknown_id: int, transaction_id: int) -> None:
     """Mark an unknown-pattern row resolved, linking it to the transaction it became.
 

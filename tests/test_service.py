@@ -26,6 +26,9 @@ class FakeRegistry:
     def parse(self, email_text, sender, subject=""):
         return self._transaction_by_sender.get(sender)
 
+    def identify_bank(self, sender):
+        return None
+
 
 def _make_message(message_id, sender="notify@kasikornbank.com"):
     return EmailMessage(
@@ -145,7 +148,7 @@ async def test_skips_ignored_parse_without_unknown_pattern(temp_db):
 
 
 @pytest.mark.asyncio
-async def test_successful_ingestion_clears_existing_unknown(temp_db):
+async def test_successful_ingestion_resolves_existing_unknown(temp_db):
     message = _make_message("msg-unknown-fixed")
     failing_reader = FakeReader([message])
     failing_registry = FakeRegistry({})
@@ -159,14 +162,17 @@ async def test_successful_ingestion_clears_existing_unknown(temp_db):
     assert summary == {"emails_checked": 1, "inserted": 1, "duplicates": 0, "failed": 0}
 
     db = await database.get_connection()
-    cursor = await db.execute("SELECT COUNT(*) AS n FROM unknown_patterns WHERE gmail_message_id = ?", (message.gmail_message_id,))
-    unknown_count = (await cursor.fetchone())["n"]
-    cursor = await db.execute("SELECT COUNT(*) AS n FROM transactions WHERE gmail_message_id = ?", (message.gmail_message_id,))
-    transaction_count = (await cursor.fetchone())["n"]
+    cursor = await db.execute(
+        "SELECT status, resolved_transaction_id FROM unknown_patterns WHERE gmail_message_id = ?",
+        (message.gmail_message_id,),
+    )
+    unknown_row = await cursor.fetchone()
+    cursor = await db.execute("SELECT id FROM transactions WHERE gmail_message_id = ?", (message.gmail_message_id,))
+    transaction_row = await cursor.fetchone()
     await db.close()
 
-    assert unknown_count == 0
-    assert transaction_count == 1
+    assert unknown_row["status"] == "resolved"
+    assert unknown_row["resolved_transaction_id"] == transaction_row["id"]
 
 
 @pytest.mark.asyncio
