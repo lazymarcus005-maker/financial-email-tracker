@@ -18,6 +18,7 @@ services:
       - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:1b}
       - TIMEZONE=${TIMEZONE:-Asia/Bangkok}
       - AUTH_SECRET_KEY=${AUTH_SECRET_KEY:-}
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - LOG_FORMAT=${LOG_FORMAT:-json}
     healthcheck:

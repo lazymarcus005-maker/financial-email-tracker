@@ -25,6 +25,13 @@ page_router = APIRouter(tags=["settings-pages"])
 GMAIL_OAUTH_STATE_COOKIE = "fet_gmail_oauth_state"
 
 
+def _public_url_for(request: Request, route_name: str, settings: Settings) -> str:
+    path = request.url_for(route_name).path
+    if settings.PUBLIC_BASE_URL:
+        return f"{settings.PUBLIC_BASE_URL.rstrip('/')}{path}"
+    return str(request.url_for(route_name))
+
+
 def _safe_settings(settings: Settings) -> dict:
     """Return settings safe to show in the UI - no tokens/credentials."""
     return {
@@ -120,7 +127,7 @@ async def gmail_disconnect(request: Request, owner_user_id: int = Depends(get_cu
 @page_router.get("/gmail/connect")
 async def gmail_connect(request: Request, settings: Settings = Depends(get_settings)):
     state = secrets.token_urlsafe(24)
-    redirect_uri = str(request.url_for("gmail_oauth_callback"))
+    redirect_uri = _public_url_for(request, "gmail_oauth_callback", settings)
     try:
         authorization_url = build_authorization_url(
             redirect_uri=redirect_uri,
@@ -146,7 +153,7 @@ async def gmail_oauth_callback(
     if not expected_state or not received_state or not secrets.compare_digest(expected_state, received_state):
         raise HTTPException(status_code=400, detail="Invalid Gmail OAuth state")
 
-    redirect_uri = str(request.url_for("gmail_oauth_callback"))
+    redirect_uri = _public_url_for(request, "gmail_oauth_callback", settings)
     try:
         exchange_authorization_response(
             redirect_uri=redirect_uri,

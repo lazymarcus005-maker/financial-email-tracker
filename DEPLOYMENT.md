@@ -8,7 +8,7 @@ cp .env.example .env
 mkdir -p secrets
 ```
 
-Edit `.env` - at minimum set `AUTH_SECRET_KEY`; set
+Edit `.env` - at minimum set `AUTH_SECRET_KEY` and `PUBLIC_BASE_URL`; set
 `LINE_CHANNEL_ACCESS_TOKEN`/`LINE_USER_ID` (see below) if you want the daily
 summary. Gmail OAuth client credentials live in `secrets/`, not `.env`.
 `docker-compose.yml` reads `.env` automatically and forwards these as
@@ -33,6 +33,7 @@ Existing runtime data is assigned to that first admin during migration/setup.
    **Web application** and add the exact authorized redirect URI:
    - Local: `http://localhost:8000/gmail/oauth2/callback`
    - Production: `https://your-domain/gmail/oauth2/callback`
+   - This deployment: `https://kplus.mxlabs.cloud/gmail/oauth2/callback`
    - If you use `127.0.0.1` or another port locally, add that exact URI too.
 3. Download the client secret JSON and save it as `secrets/credentials.json`.
 4. Each user connects Gmail from `/settings`. The app stores a readonly Gmail
@@ -58,6 +59,13 @@ Existing runtime data is assigned to that first admin during migration/setup.
    refreshable after deploy.
 8. Set `GMAIL_QUERY` in `config.yaml` to scope which emails are ingested,
    e.g. `from:(KPLUS@kasikornbank.com) newer_than:90d`.
+
+Set the public base URL in `.env` so the app sends the same redirect URI that
+Google Cloud expects:
+
+```bash
+PUBLIC_BASE_URL=https://kplus.mxlabs.cloud
+```
 
 Token refresh is automatic (`app/gmail/authorize.py` refreshes expired tokens
 using stored refresh tokens). If refresh fails for a user, open Settings,

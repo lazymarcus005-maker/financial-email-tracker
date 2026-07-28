@@ -419,6 +419,28 @@ def test_settings_page_loads(client):
     assert resp.status_code == 200
 
 
+def test_gmail_connect_uses_public_base_url(client, monkeypatch):
+    from app.config import Settings
+    from app.web.routes import settings as settings_routes
+
+    captured = {}
+
+    def fake_build_authorization_url(redirect_uri, state, credentials_path):
+        captured["redirect_uri"] = redirect_uri
+        return "https://accounts.google.com/o/oauth2/auth?test=1"
+
+    app.dependency_overrides[settings_routes.get_settings] = lambda: Settings(
+        PUBLIC_BASE_URL="https://kplus.mxlabs.cloud",
+        GMAIL_CREDENTIALS_PATH="secrets/credentials.json",
+    )
+    monkeypatch.setattr(settings_routes, "build_authorization_url", fake_build_authorization_url)
+
+    resp = client.get("/gmail/connect", follow_redirects=False)
+
+    assert resp.status_code == 303
+    assert captured["redirect_uri"] == "https://kplus.mxlabs.cloud/gmail/oauth2/callback"
+
+
 @pytest.mark.asyncio
 async def test_settings_clear_export_import_data(client, db_connection):
     await _insert_transaction(db_connection, gmail_message_id="msg-export")

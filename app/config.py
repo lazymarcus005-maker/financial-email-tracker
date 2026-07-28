@@ -53,6 +53,7 @@ class Settings:
 
     WEB_HOST: str = "0.0.0.0"
     WEB_PORT: int = 8000
+    PUBLIC_BASE_URL: str | None = None
 
     AUTH_SECRET_KEY: str | None = None
     AUTH_COOKIE_NAME: str = "fet_session"
