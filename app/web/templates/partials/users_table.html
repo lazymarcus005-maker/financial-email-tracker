@@ -1,0 +1,50 @@
+<div id="users-table" class="overflow-x-auto">
+    <table class="w-full text-sm zebra-table">
+        <thead>
+            <tr class="text-left text-xs text-neutral-500 uppercase tracking-wide">
+                <th class="py-2 pr-4 font-medium">User</th>
+                <th class="py-2 pr-4 font-medium">Role</th>
+                <th class="py-2 pr-4 font-medium">Status</th>
+                <th class="py-2 pr-4 font-medium">Password</th>
+                <th class="py-2 font-medium"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td class="py-3 pr-4 align-top min-w-56">
+                    <form id="user-form-{{ user.id }}" class="space-y-2" hx-patch="/api/users/{{ user.id }}" hx-target="#users-table" hx-swap="outerHTML">
+                        <input name="display_name" value="{{ user.display_name }}" class="input" aria-label="Display name">
+                        <div class="text-xs text-neutral-500">{{ user.email }}</div>
+                    </form>
+                </td>
+                <td class="py-3 pr-4 align-top min-w-32">
+                    <select name="role" form="user-form-{{ user.id }}" class="input">
+                        <option value="user" {% if user.role == 'user' %}selected{% endif %}>User</option>
+                        <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                    </select>
+                </td>
+                <td class="py-3 pr-4 align-top min-w-32">
+                    <select name="is_active" form="user-form-{{ user.id }}" class="input">
+                        <option value="true" {% if user.is_active %}selected{% endif %}>Active</option>
+                        <option value="false" {% if not user.is_active %}selected{% endif %}>Disabled</option>
+                    </select>
+                </td>
+                <td class="py-3 pr-4 align-top min-w-48">
+                    <form class="flex items-center gap-2" hx-post="/api/users/{{ user.id }}/password" hx-target="#users-status" hx-swap="outerHTML">
+                        <input name="password" type="password" minlength="8" class="input" placeholder="New password" aria-label="New password">
+                        <button type="submit" class="px-3 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-100">Reset</button>
+                    </form>
+                </td>
+                <td class="py-3 align-top text-right">
+                    <button type="submit" form="user-form-{{ user.id }}" class="px-3 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700">Save</button>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="py-6 text-center text-sm text-neutral-500">No users yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

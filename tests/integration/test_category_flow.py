@@ -19,6 +19,16 @@ SUBJECT = "K PLUS: You have sent money successfully"
 def client(temp_db_path):
     app.dependency_overrides[deps.get_gmail_client] = lambda: object()
     test_client = TestClient(app)
+    setup_resp = test_client.post(
+        "/setup",
+        data={
+            "email": "admin@example.com",
+            "display_name": "Admin",
+            "password": "admin-password",
+        },
+        follow_redirects=False,
+    )
+    assert setup_resp.status_code == 303
     try:
         yield test_client
     finally:

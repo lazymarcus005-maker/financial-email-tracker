@@ -18,6 +18,25 @@ from app.web.routes import unknown as unknown_routes
 def client(temp_db_path):
     app.dependency_overrides[deps.get_gmail_client] = lambda: object()
     test_client = TestClient(app)
+    setup_resp = test_client.post(
+        "/setup",
+        data={
+            "email": "admin@example.com",
+            "display_name": "Admin",
+            "password": "admin-password",
+        },
+        follow_redirects=False,
+    )
+    assert setup_resp.status_code == 303
+    try:
+        yield test_client
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def unauth_client(temp_db_path):
+    test_client = TestClient(app)
     try:
         yield test_client
     finally:
@@ -25,7 +44,13 @@ def client(temp_db_path):
 
 
 async def _insert_transaction(db, **overrides):
+    if "owner_user_id" not in overrides:
+        cursor = await db.execute("SELECT id FROM users ORDER BY id LIMIT 1")
+        owner = await cursor.fetchone()
+        await cursor.close()
+        overrides["owner_user_id"] = owner["id"] if owner else None
     fields = dict(
+        owner_user_id=None,
         transaction_type="bank_transfer",
         direction="out",
         status="success",
@@ -48,11 +73,11 @@ async def _insert_transaction(db, **overrides):
     cursor = await db.execute(
         """
         INSERT INTO transactions (
-            transaction_type, direction, status, occurred_at, amount, fee,
+            owner_user_id, transaction_type, direction, status, occurred_at, amount, fee,
             available_balance, counterparty, description, category, category_source,
             parser_version, parse_status, parse_confidence, warnings_json,
             raw_fields_json, gmail_message_id
-        ) VALUES (:transaction_type, :direction, :status, :occurred_at, :amount, :fee,
+        ) VALUES (:owner_user_id, :transaction_type, :direction, :status, :occurred_at, :amount, :fee,
             :available_balance, :counterparty, :description, :category, :category_source,
             :parser_version, :parse_status, :parse_confidence, :warnings_json,
             :raw_fields_json, :gmail_message_id)
@@ -64,7 +89,13 @@ async def _insert_transaction(db, **overrides):
 
 
 async def _insert_unknown(db, **overrides):
+    if "owner_user_id" not in overrides:
+        cursor = await db.execute("SELECT id FROM users ORDER BY id LIMIT 1")
+        owner = await cursor.fetchone()
+        await cursor.close()
+        overrides["owner_user_id"] = owner["id"] if owner else None
     fields = dict(
+        owner_user_id=None,
         subject="Unrecognized email",
         sender="unknown@example.com",
         transaction_code=None,
@@ -79,9 +110,9 @@ async def _insert_unknown(db, **overrides):
     cursor = await db.execute(
         """
         INSERT INTO unknown_patterns (
-            subject, sender, transaction_code, amount, warnings_json,
+            owner_user_id, subject, sender, transaction_code, amount, warnings_json,
             raw_fields_json, parser_version, status, gmail_message_id
-        ) VALUES (:subject, :sender, :transaction_code, :amount, :warnings_json,
+        ) VALUES (:owner_user_id, :subject, :sender, :transaction_code, :amount, :warnings_json,
             :raw_fields_json, :parser_version, :status, :gmail_message_id)
         """,
         fields,
@@ -153,6 +184,191 @@ def test_health_check(client):
     assert resp.json() == {"status": "ok", "version": "2.0.0"}
 
 
+# ---- Authentication --------------------------------------------------------------
+
+
+def test_first_visit_without_users_redirects_to_setup(unauth_client):
+    resp = unauth_client.get("/", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/setup"
+
+
+def test_unauthenticated_user_redirects_to_login_after_setup(unauth_client):
+    setup_resp = unauth_client.post(
+        "/setup",
+        data={
+            "email": "admin@example.com",
+            "display_name": "Admin",
+            "password": "admin-password",
+        },
+        follow_redirects=False,
+    )
+    assert setup_resp.status_code == 303
+
+    logout_resp = unauth_client.post("/logout", follow_redirects=False)
+    assert logout_resp.status_code == 303
+
+    resp = unauth_client.get("/transactions", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"].startswith("/login?next=")
+
+
+def test_unauthenticated_api_returns_401_after_setup(unauth_client):
+    unauth_client.post(
+        "/setup",
+        data={
+            "email": "admin@example.com",
+            "display_name": "Admin",
+            "password": "admin-password",
+        },
+        follow_redirects=False,
+    )
+    unauth_client.post("/logout", follow_redirects=False)
+
+    resp = unauth_client.get("/api/transactions")
+
+    assert resp.status_code == 401
+
+
+def test_admin_can_manage_users(client):
+    create_resp = client.post(
+        "/api/users",
+        json={
+            "email": "analyst@example.com",
+            "display_name": "Analyst",
+            "password": "analyst-password",
+            "role": "user",
+            "is_active": True,
+        },
+    )
+    assert create_resp.status_code == 201
+    user = create_resp.json()
+
+    list_resp = client.get("/api/users")
+    assert list_resp.status_code == 200
+    assert any(item["email"] == "analyst@example.com" for item in list_resp.json()["items"])
+
+    update_resp = client.patch(
+        f"/api/users/{user['id']}",
+        json={"display_name": "Senior Analyst", "role": "admin", "is_active": True},
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["role"] == "admin"
+
+    password_resp = client.post(f"/api/users/{user['id']}/password", json={"password": "new-password"})
+    assert password_resp.status_code == 200
+
+
+def test_non_admin_cannot_access_user_management(client):
+    create_resp = client.post(
+        "/api/users",
+        json={
+            "email": "viewer@example.com",
+            "display_name": "Viewer",
+            "password": "viewer-password",
+            "role": "user",
+            "is_active": True,
+        },
+    )
+    assert create_resp.status_code == 201
+
+    viewer_client = TestClient(app)
+    login_resp = viewer_client.post(
+        "/login",
+        data={"email": "viewer@example.com", "password": "viewer-password", "next": "/"},
+        follow_redirects=False,
+    )
+    assert login_resp.status_code == 303
+
+    resp = viewer_client.get("/api/users")
+    assert resp.status_code == 403
+
+
+def test_cannot_disable_last_active_admin(client):
+    users_resp = client.get("/api/users")
+    admin = next(item for item in users_resp.json()["items"] if item["email"] == "admin@example.com")
+
+    resp = client.patch(
+        f"/api/users/{admin['id']}",
+        json={"display_name": "Admin", "role": "user", "is_active": True},
+    )
+
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_runtime_data_is_scoped_per_user(client, db_connection):
+    user_resp = client.post(
+        "/api/users",
+        json={
+            "email": "viewer@example.com",
+            "display_name": "Viewer",
+            "password": "viewer-password",
+            "role": "user",
+            "is_active": True,
+        },
+    )
+    viewer_id = user_resp.json()["id"]
+
+    admin_tx_id = await _insert_transaction(db_connection, gmail_message_id="msg-admin")
+    viewer_tx_id = await _insert_transaction(
+        db_connection,
+        owner_user_id=viewer_id,
+        gmail_message_id="msg-viewer",
+        counterparty="Viewer Shop",
+    )
+
+    admin_list = client.get("/api/transactions").json()
+    assert [item["id"] for item in admin_list["items"]] == [admin_tx_id]
+    assert client.get(f"/api/transactions/{viewer_tx_id}").status_code == 404
+
+    viewer_client = TestClient(app)
+    login_resp = viewer_client.post(
+        "/login",
+        data={"email": "viewer@example.com", "password": "viewer-password", "next": "/"},
+        follow_redirects=False,
+    )
+    assert login_resp.status_code == 303
+
+    viewer_list = viewer_client.get("/api/transactions").json()
+    assert [item["id"] for item in viewer_list["items"]] == [viewer_tx_id]
+    assert viewer_client.get(f"/api/transactions/{admin_tx_id}").status_code == 404
+
+
+def test_mappings_are_scoped_per_user(client):
+    user_resp = client.post(
+        "/api/users",
+        json={
+            "email": "viewer@example.com",
+            "display_name": "Viewer",
+            "password": "viewer-password",
+            "role": "user",
+            "is_active": True,
+        },
+    )
+    assert user_resp.status_code == 201
+
+    admin_mapping = client.post(
+        "/api/mappings",
+        json={"counterparty": "Netflix", "category": "Entertainment"},
+    ).json()
+
+    viewer_client = TestClient(app)
+    viewer_client.post(
+        "/login",
+        data={"email": "viewer@example.com", "password": "viewer-password", "next": "/"},
+        follow_redirects=False,
+    )
+    viewer_mapping = viewer_client.post(
+        "/api/mappings",
+        json={"counterparty": "Netflix", "category": "Subscriptions"},
+    ).json()
+
+    assert admin_mapping["id"] != viewer_mapping["id"]
+    assert client.get("/api/mappings").json()["items"][0]["category"] == "Entertainment"
+    assert viewer_client.get("/api/mappings").json()["items"][0]["category"] == "Subscriptions"
+
+
 # ---- Settings ------------------------------------------------------------------
 
 
@@ -166,7 +382,36 @@ def test_settings_api_exposes_no_secrets(client):
     assert set(body) == {
         "gmail_query", "database_path", "schedule", "timezone", "ai_enabled",
         "ollama_base_url", "ollama_model", "parser_version", "line_configured", "log_level",
+        "gmail_connected",
     }
+
+
+def test_gmail_status_is_per_user(client):
+    user_resp = client.post(
+        "/api/users",
+        json={
+            "email": "viewer@example.com",
+            "display_name": "Viewer",
+            "password": "viewer-password",
+            "role": "user",
+            "is_active": True,
+        },
+    )
+    assert user_resp.status_code == 201
+
+    resp = client.get("/api/gmail/status")
+    assert resp.status_code == 200
+    assert resp.json() == {"connected": False}
+
+    viewer_client = TestClient(app)
+    viewer_client.post(
+        "/login",
+        data={"email": "viewer@example.com", "password": "viewer-password", "next": "/"},
+        follow_redirects=False,
+    )
+    viewer_resp = viewer_client.get("/api/gmail/status")
+    assert viewer_resp.status_code == 200
+    assert viewer_resp.json() == {"connected": False}
 
 
 def test_settings_page_loads(client):
@@ -177,9 +422,12 @@ def test_settings_page_loads(client):
 @pytest.mark.asyncio
 async def test_settings_clear_export_import_data(client, db_connection):
     await _insert_transaction(db_connection, gmail_message_id="msg-export")
+    cursor = await db_connection.execute("SELECT id FROM users ORDER BY id LIMIT 1")
+    owner = await cursor.fetchone()
+    await cursor.close()
     await db_connection.execute(
-        "INSERT INTO ignored_subjects (subject, reason) VALUES (?, ?)",
-        ("Ignored Export Subject", "test"),
+        "INSERT INTO ignored_subjects (owner_user_id, subject, reason) VALUES (?, ?, ?)",
+        (owner["id"], "Ignored Export Subject", "test"),
     )
     await db_connection.commit()
 
@@ -516,9 +764,12 @@ async def test_unknown_ignore_subject_adds_future_ingestion_filter(client, db_co
 
 @pytest.mark.asyncio
 async def test_unknown_page_shows_ignored_subjects(client, db_connection):
+    cursor = await db_connection.execute("SELECT id FROM users ORDER BY id LIMIT 1")
+    owner = await cursor.fetchone()
+    await cursor.close()
     await db_connection.execute(
-        "INSERT INTO ignored_subjects (subject, reason) VALUES (?, ?)",
-        ("Ignored Subject", "test"),
+        "INSERT INTO ignored_subjects (owner_user_id, subject, reason) VALUES (?, ?, ?)",
+        (owner["id"], "Ignored Subject", "test"),
     )
     await db_connection.commit()
 
@@ -580,7 +831,11 @@ async def test_reparse_unknown_success(client, db_connection, monkeypatch):
 
 
 def test_trigger_ingestion_run(client, monkeypatch):
-    async def fake_run_ingestion(query, engine=None):
+    captured = {}
+
+    async def fake_run_ingestion(query, reader=None, engine=None, owner_user_id=None):
+        captured["owner_user_id"] = owner_user_id
+        captured["reader"] = reader
         return {"emails_checked": 3, "inserted": 2, "duplicates": 1, "failed": 0}
 
     monkeypatch.setattr(ingestion_routes, "run_ingestion", fake_run_ingestion)
@@ -588,13 +843,16 @@ def test_trigger_ingestion_run(client, monkeypatch):
     resp = client.post("/api/ingestion/run")
     assert resp.status_code == 200
     assert resp.json() == {"emails_checked": 3, "inserted": 2, "duplicates": 1, "failed": 0}
+    assert captured["owner_user_id"] == 1
+    assert captured["reader"] is not None
 
 
 def test_trigger_ingestion_run_accepts_window(client, monkeypatch):
     captured = {}
 
-    async def fake_run_ingestion(query, engine=None):
+    async def fake_run_ingestion(query, reader=None, engine=None, owner_user_id=None):
         captured["query"] = query
+        captured["owner_user_id"] = owner_user_id
         return {"emails_checked": 0, "inserted": 0, "duplicates": 0, "failed": 0}
 
     monkeypatch.setattr(ingestion_routes, "run_ingestion", fake_run_ingestion)
@@ -604,10 +862,11 @@ def test_trigger_ingestion_run_accepts_window(client, monkeypatch):
     assert resp.status_code == 200
     assert "newer_than:30d" in captured["query"]
     assert "newer_than:2d" not in captured["query"]
+    assert captured["owner_user_id"] == 1
 
 
 def test_trigger_ingestion_run_returns_409_when_already_running(client, monkeypatch):
-    async def fake_run_ingestion(query, engine=None):
+    async def fake_run_ingestion(query, reader=None, engine=None, owner_user_id=None):
         raise ingestion_routes.IngestionAlreadyRunningError("An ingestion run is already in progress")
 
     monkeypatch.setattr(ingestion_routes, "run_ingestion", fake_run_ingestion)
@@ -622,8 +881,15 @@ async def test_list_runs_empty_then_populated(client, db_connection):
     assert resp.status_code == 200
     assert resp.json()["total"] == 0
 
+    cursor = await db_connection.execute("SELECT id FROM users ORDER BY id LIMIT 1")
+    owner = await cursor.fetchone()
+    await cursor.close()
     await db_connection.execute(
-        "INSERT INTO ingestion_runs (emails_checked, inserted, duplicates, failed, duration_seconds) VALUES (1, 1, 0, 0, 0.5)"
+        """
+        INSERT INTO ingestion_runs (owner_user_id, emails_checked, inserted, duplicates, failed, duration_seconds)
+        VALUES (?, 1, 1, 0, 0, 0.5)
+        """,
+        (owner["id"],),
     )
     await db_connection.commit()
 
@@ -638,8 +904,15 @@ def test_retry_run_not_found(client):
 
 @pytest.mark.asyncio
 async def test_retry_run_retries_pending_unknowns(client, db_connection, monkeypatch):
+    cursor = await db_connection.execute("SELECT id FROM users ORDER BY id LIMIT 1")
+    owner = await cursor.fetchone()
+    await cursor.close()
     cursor = await db_connection.execute(
-        "INSERT INTO ingestion_runs (emails_checked, inserted, duplicates, failed, duration_seconds) VALUES (1, 0, 0, 1, 0.1)"
+        """
+        INSERT INTO ingestion_runs (owner_user_id, emails_checked, inserted, duplicates, failed, duration_seconds)
+        VALUES (?, 1, 0, 0, 1, 0.1)
+        """,
+        (owner["id"],),
     )
     await db_connection.commit()
     run_id = cursor.lastrowid

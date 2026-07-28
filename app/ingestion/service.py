@@ -5,6 +5,9 @@ import threading
 import time
 
 from app.classification.engine import CategoryEngine
+from app.config import get_settings
+from app.gmail.authorize import token_exists, user_token_path
+from app.gmail.client import GmailClient
 from app.gmail.reader import GmailReader
 from app.ingestion import persistence
 from app.parsers.registry import ParserRegistry
@@ -25,6 +28,7 @@ async def run_ingestion(
     reader: GmailReader | None = None,
     registry: ParserRegistry | None = None,
     engine: CategoryEngine | None = None,
+    owner_user_id: int | None = None,
 ) -> dict:
     """Read emails matching `query`, parse them, and persist new transactions.
 
@@ -34,7 +38,6 @@ async def run_ingestion(
         raise IngestionAlreadyRunningError("An ingestion run is already in progress")
 
     started_at = time.monotonic()
-    reader = reader or GmailReader()
     registry = registry or ParserRegistry()
     engine = engine or CategoryEngine()
 
@@ -43,17 +46,38 @@ async def run_ingestion(
         db = await get_connection()
 
         try:
-            effective_query = await queries.apply_ignored_subjects_to_gmail_query(db, query)
-            messages = reader.read(effective_query)
+            effective_owner_id = owner_user_id
+            if effective_owner_id is None:
+                effective_owner_id = await queries.get_default_owner_user_id(db)
+            effective_reader = reader
+            if effective_reader is None:
+                settings = get_settings()
+                token_path = user_token_path(effective_owner_id) if effective_owner_id is not None else None
+                if token_path is not None and token_exists(token_path):
+                    effective_reader = GmailReader(
+                        GmailClient(credentials_path=settings.GMAIL_CREDENTIALS_PATH, token_path=token_path)
+                    )
+                else:
+                    effective_reader = GmailReader(
+                        GmailClient(
+                            credentials_path=settings.GMAIL_CREDENTIALS_PATH,
+                            token_path=settings.GMAIL_TOKEN_PATH,
+                        )
+                    )
+
+            effective_query = await queries.apply_ignored_subjects_to_gmail_query(
+                db, query, owner_user_id=effective_owner_id
+            )
+            messages = effective_reader.read(effective_query)
 
             for message in messages:
-                if await queries.is_subject_ignored(db, message.subject):
+                if await queries.is_subject_ignored(db, message.subject, owner_user_id=effective_owner_id):
                     logger.info(
                         f"Skipping ignored subject for message {message.gmail_message_id} ({message.subject!r})"
                     )
                     continue
 
-                if await persistence.already_ingested(db, message.gmail_message_id):
+                if await persistence.already_ingested(db, message.gmail_message_id, owner_user_id=effective_owner_id):
                     logger.info(f"Skipping duplicate message {message.gmail_message_id}")
                     duplicates += 1
                     continue
@@ -65,28 +89,40 @@ async def run_ingestion(
                     continue
 
                 if transaction is None or transaction.parse_status == "failed":
-                    await persistence.insert_unknown(db, message, transaction)
+                    await persistence.insert_unknown(db, message, transaction, owner_user_id=effective_owner_id)
                     await db.commit()
                     failed += 1
                     continue
 
-                if await persistence.find_duplicate_transaction(db, transaction):
+                if await persistence.find_duplicate_transaction(db, transaction, owner_user_id=effective_owner_id):
                     logger.info(
                         f"Skipping duplicate transaction (reference/fingerprint match) for message {message.gmail_message_id}"
                     )
-                    await persistence.resolve_unknown_by_message(db, message.gmail_message_id, None)
+                    await persistence.resolve_unknown_by_message(
+                        db, message.gmail_message_id, None, owner_user_id=effective_owner_id
+                    )
                     await db.commit()
                     duplicates += 1
                     continue
 
                 category, category_source = await engine.categorize(
-                    db, persistence.transaction_to_dict(transaction)
+                    db,
+                    persistence.transaction_to_dict(transaction),
+                    owner_user_id=effective_owner_id,
                 )
                 bank = registry.identify_bank(message.sender)
                 transaction_id = await persistence.insert_transaction(
-                    db, message, transaction, category, category_source, bank=bank
+                    db,
+                    message,
+                    transaction,
+                    category,
+                    category_source,
+                    owner_user_id=effective_owner_id,
+                    bank=bank,
                 )
-                await persistence.resolve_unknown_by_message(db, message.gmail_message_id, transaction_id)
+                await persistence.resolve_unknown_by_message(
+                    db, message.gmail_message_id, transaction_id, owner_user_id=effective_owner_id
+                )
                 await db.commit()
                 inserted += 1
 
@@ -98,6 +134,7 @@ async def run_ingestion(
                 duplicates=duplicates,
                 failed=failed,
                 duration_seconds=duration,
+                owner_user_id=effective_owner_id,
             )
             await db.commit()
         finally:

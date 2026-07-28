@@ -17,6 +17,7 @@ services:
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma3:1b}
       - TIMEZONE=${TIMEZONE:-Asia/Bangkok}
+      - AUTH_SECRET_KEY=${AUTH_SECRET_KEY:-}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - LOG_FORMAT=${LOG_FORMAT:-json}
     healthcheck:

@@ -1,12 +1,13 @@
 """Gmail OAuth2 authorization - obtain and refresh credentials, persist token.json."""
 
 import logging
+import os
 from pathlib import Path
 
 from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import Flow, InstalledAppFlow
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,15 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
 DEFAULT_CREDENTIALS_PATH = Path("secrets/credentials.json")
 DEFAULT_TOKEN_PATH = Path("secrets/token.json")
+USER_TOKEN_ROOT = Path("secrets/users")
+
+
+def user_token_path(user_id: int, token_root: Path | str | None = None) -> Path:
+    return Path(token_root or USER_TOKEN_ROOT) / str(user_id) / "gmail-token.json"
+
+
+def token_exists(token_path: Path | str) -> bool:
+    return Path(token_path).exists()
 
 
 def get_credentials(
@@ -59,6 +69,44 @@ def _save_token(creds: Credentials, token_path: Path) -> None:
     token_path.parent.mkdir(parents=True, exist_ok=True)
     token_path.write_text(creds.to_json())
     logger.info(f"Saved Gmail OAuth token to {token_path}")
+
+
+def build_authorization_url(
+    redirect_uri: str,
+    state: str,
+    credentials_path: Path | str = DEFAULT_CREDENTIALS_PATH,
+) -> str:
+    credentials_path = Path(credentials_path)
+    if redirect_uri.startswith(("http://127.0.0.1", "http://localhost")):
+        os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
+    if not credentials_path.exists():
+        raise FileNotFoundError(
+            f"Gmail OAuth client credentials not found at {credentials_path}. "
+            "Download it from Google Cloud Console and save it there."
+        )
+    flow = Flow.from_client_secrets_file(str(credentials_path), scopes=SCOPES, redirect_uri=redirect_uri)
+    authorization_url, _ = flow.authorization_url(
+        access_type="offline",
+        include_granted_scopes="true",
+        prompt="consent",
+        state=state,
+    )
+    return authorization_url
+
+
+def exchange_authorization_response(
+    redirect_uri: str,
+    authorization_response: str,
+    token_path: Path | str,
+    credentials_path: Path | str = DEFAULT_CREDENTIALS_PATH,
+) -> None:
+    credentials_path = Path(credentials_path)
+    token_path = Path(token_path)
+    if redirect_uri.startswith(("http://127.0.0.1", "http://localhost")):
+        os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
+    flow = Flow.from_client_secrets_file(str(credentials_path), scopes=SCOPES, redirect_uri=redirect_uri)
+    flow.fetch_token(authorization_response=authorization_response)
+    _save_token(flow.credentials, token_path)
 
 
 if __name__ == "__main__":

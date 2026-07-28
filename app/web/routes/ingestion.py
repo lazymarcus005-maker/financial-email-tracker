@@ -10,11 +10,12 @@ from fastapi.responses import HTMLResponse
 from app.classification.engine import CategoryEngine
 from app.config import Settings, get_settings
 from app.gmail.client import GmailClient
+from app.gmail.reader import GmailReader
 from app.ingestion.reparse import reparse_unknown
 from app.ingestion.service import IngestionAlreadyRunningError, run_ingestion
 from app.parsers.registry import ParserRegistry
 from app.storage import queries
-from app.web.deps import get_category_engine, get_db, get_gmail_client, get_parser_registry
+from app.web.deps import get_category_engine, get_current_user_id, get_db, get_gmail_client, get_parser_registry
 
 logger = logging.getLogger(__name__)
 
@@ -82,10 +83,11 @@ def _ingestion_control_html(button_text: str, selected_window: str = "default") 
 @router.get("/runs")
 async def list_runs(
     db: aiosqlite.Connection = Depends(get_db),
+    owner_user_id: int = Depends(get_current_user_id),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
-    items, total = await queries.list_runs(db, page=page, page_size=page_size)
+    items, total = await queries.list_runs(db, page=page, page_size=page_size, owner_user_id=owner_user_id)
     return {"items": items, "total": total, "page": page, "page_size": page_size}
 
 
@@ -93,12 +95,15 @@ async def list_runs(
 async def trigger_run(
     request: Request,
     engine: CategoryEngine = Depends(get_category_engine),
+    gmail_client: GmailClient = Depends(get_gmail_client),
+    owner_user_id: int = Depends(get_current_user_id),
 ):
     settings = get_settings()
     window = await _get_ingestion_window(request)
     query = _query_for_window(settings.GMAIL_QUERY, window)
+    reader = GmailReader(gmail_client)
     try:
-        summary = await run_ingestion(query, engine=engine)
+        summary = await run_ingestion(query, reader=reader, engine=engine, owner_user_id=owner_user_id)
     except IngestionAlreadyRunningError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
 
@@ -119,17 +124,27 @@ async def retry_run(
     gmail_client: GmailClient = Depends(get_gmail_client),
     registry: ParserRegistry = Depends(get_parser_registry),
     engine: CategoryEngine = Depends(get_category_engine),
+    owner_user_id: int = Depends(get_current_user_id),
 ):
     """Retry all currently-pending unknown patterns (best-effort - runs aren't tracked per-message)."""
-    run = await queries.get_run(db, run_id)
+    run = await queries.get_run(db, run_id, owner_user_id=owner_user_id)
     if run is None:
         raise HTTPException(status_code=404, detail="Run not found")
 
-    pending, _ = await queries.list_unknown(db, page=1, page_size=queries.MAX_PAGE_SIZE, status="pending")
+    pending, _ = await queries.list_unknown(
+        db, page=1, page_size=queries.MAX_PAGE_SIZE, status="pending", owner_user_id=owner_user_id
+    )
 
     parsed = failed = 0
     for item in pending:
-        result = await reparse_unknown(db, item["id"], gmail_client=gmail_client, registry=registry, engine=engine)
+        result = await reparse_unknown(
+            db,
+            item["id"],
+            gmail_client=gmail_client,
+            registry=registry,
+            engine=engine,
+            owner_user_id=owner_user_id,
+        )
         if result["status"] == "parsed":
             parsed += 1
         else:

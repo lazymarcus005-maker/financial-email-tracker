@@ -12,7 +12,14 @@ from app.gmail.client import GmailClient
 from app.ingestion.reparse import reparse_transaction
 from app.parsers.registry import ParserRegistry
 from app.storage import queries
-from app.web.deps import get_category_engine, get_db, get_gmail_client, get_parser_registry, templates
+from app.web.deps import (
+    get_category_engine,
+    get_current_user_id,
+    get_db,
+    get_gmail_client,
+    get_parser_registry,
+    templates,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +35,7 @@ class TransactionUpdate(BaseModel):
 @router.get("/transactions")
 async def list_transactions(
     db: aiosqlite.Connection = Depends(get_db),
+    owner_user_id: int = Depends(get_current_user_id),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     date_from: str | None = None,
@@ -43,6 +51,7 @@ async def list_transactions(
         db,
         page=page,
         page_size=page_size,
+        owner_user_id=owner_user_id,
         date_from=date_from,
         date_to=date_to,
         category=category,
@@ -56,8 +65,12 @@ async def list_transactions(
 
 
 @router.get("/transactions/{transaction_id}")
-async def get_transaction(transaction_id: int, db: aiosqlite.Connection = Depends(get_db)):
-    transaction = await queries.get_transaction(db, transaction_id)
+async def get_transaction(
+    transaction_id: int,
+    db: aiosqlite.Connection = Depends(get_db),
+    owner_user_id: int = Depends(get_current_user_id),
+):
+    transaction = await queries.get_transaction(db, transaction_id, owner_user_id=owner_user_id)
     if transaction is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
     return transaction
@@ -68,8 +81,9 @@ async def update_transaction(
     transaction_id: int,
     request: Request,
     db: aiosqlite.Connection = Depends(get_db),
+    owner_user_id: int = Depends(get_current_user_id),
 ):
-    transaction = await queries.get_transaction(db, transaction_id)
+    transaction = await queries.get_transaction(db, transaction_id, owner_user_id=owner_user_id)
     if transaction is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
@@ -86,14 +100,18 @@ async def update_transaction(
         category = body.get("category")
         ignore = body.get("ignore")
         if ignore is not None:
-            await queries.set_transaction_ignored(db, transaction_id, ignore)
+            await queries.set_transaction_ignored(db, transaction_id, ignore, owner_user_id=owner_user_id)
 
     if category is not None:
-        await queries.update_transaction_category(db, transaction_id, category, category_source="manual")
-        await history.record(db, transaction["counterparty"], category, source="manual")
+        await queries.update_transaction_category(
+            db, transaction_id, category, category_source="manual", owner_user_id=owner_user_id
+        )
+        await history.record(
+            db, transaction["counterparty"], category, source="manual", owner_user_id=owner_user_id
+        )
         await db.commit()
 
-    t = await queries.get_transaction(db, transaction_id)
+    t = await queries.get_transaction(db, transaction_id, owner_user_id=owner_user_id)
     # HTMX: return HTML partial
     if request.headers.get("HX-Request") == "true":
         if request.headers.get("HX-Target") == "transaction-actions":
@@ -107,11 +125,12 @@ async def delete_transaction(
     transaction_id: int,
     request: Request,
     db: aiosqlite.Connection = Depends(get_db),
+    owner_user_id: int = Depends(get_current_user_id),
 ):
-    transaction = await queries.get_transaction(db, transaction_id)
+    transaction = await queries.get_transaction(db, transaction_id, owner_user_id=owner_user_id)
     if transaction is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    await queries.delete_transaction(db, transaction_id)
+    await queries.delete_transaction(db, transaction_id, owner_user_id=owner_user_id)
     # HTMX: redirect to transactions list
     if request.headers.get("HX-Request") == "true":
         from fastapi.responses import HTMLResponse
@@ -127,13 +146,21 @@ async def reparse(
     gmail_client: GmailClient = Depends(get_gmail_client),
     registry: ParserRegistry = Depends(get_parser_registry),
     engine: CategoryEngine = Depends(get_category_engine),
+    owner_user_id: int = Depends(get_current_user_id),
 ):
-    result = await reparse_transaction(db, transaction_id, gmail_client=gmail_client, registry=registry, engine=engine)
+    result = await reparse_transaction(
+        db,
+        transaction_id,
+        gmail_client=gmail_client,
+        registry=registry,
+        engine=engine,
+        owner_user_id=owner_user_id,
+    )
     if result["status"] == "not_found":
         raise HTTPException(status_code=404, detail="Transaction not found")
     # HTMX: return updated actions partial
     if request.headers.get("HX-Request") == "true":
-        t = await queries.get_transaction(db, transaction_id)
+        t = await queries.get_transaction(db, transaction_id, owner_user_id=owner_user_id)
         return templates.TemplateResponse(request, "partials/transaction_actions.html", {"t": t})
     return result
 
@@ -163,6 +190,7 @@ async def get_transaction_raw_email(
 async def transactions_page(
     request: Request,
     db: aiosqlite.Connection = Depends(get_db),
+    owner_user_id: int = Depends(get_current_user_id),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     date_from: str | None = None,
@@ -178,6 +206,7 @@ async def transactions_page(
         db,
         page=page,
         page_size=page_size,
+        owner_user_id=owner_user_id,
         date_from=date_from,
         date_to=date_to,
         category=category,
@@ -188,8 +217,8 @@ async def transactions_page(
         sort_dir=dir,
     )
     total_pages = max(1, -(-total // page_size))
-    categories = await queries.list_categories(db)
-    types = await queries.list_transaction_types(db)
+    categories = await queries.list_categories(db, owner_user_id=owner_user_id)
+    types = await queries.list_transaction_types(db, owner_user_id=owner_user_id)
     return templates.TemplateResponse(
         request,
         "transactions.html",
@@ -216,11 +245,16 @@ async def transactions_page(
 
 
 @page_router.get("/transactions/{transaction_id}")
-async def transaction_detail_page(request: Request, transaction_id: int, db: aiosqlite.Connection = Depends(get_db)):
-    transaction = await queries.get_transaction(db, transaction_id)
+async def transaction_detail_page(
+    request: Request,
+    transaction_id: int,
+    db: aiosqlite.Connection = Depends(get_db),
+    owner_user_id: int = Depends(get_current_user_id),
+):
+    transaction = await queries.get_transaction(db, transaction_id, owner_user_id=owner_user_id)
     if transaction is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    categories = await queries.list_categories(db)
+    categories = await queries.list_categories(db, owner_user_id=owner_user_id)
     return templates.TemplateResponse(request, "transaction_detail.html", {"t": transaction, "categories": categories})
 
 
@@ -234,14 +268,19 @@ async def transaction_detail_modal(request: Request, transaction_id: int, db: ai
 
 
 @page_router.get("/transactions/{transaction_id}/edit-category")
-async def edit_category_fragment(transaction_id: int, db: aiosqlite.Connection = Depends(get_db)):
+async def edit_category_fragment(
+    request: Request,
+    transaction_id: int,
+    db: aiosqlite.Connection = Depends(get_db),
+    owner_user_id: int = Depends(get_current_user_id),
+):
     """HTMX fragment: inline category editor with datalist."""
-    transaction = await queries.get_transaction(db, transaction_id)
+    transaction = await queries.get_transaction(db, transaction_id, owner_user_id=owner_user_id)
     if transaction is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    categories = await queries.list_categories(db)
+    categories = await queries.list_categories(db, owner_user_id=owner_user_id)
     return templates.TemplateResponse(
-        Request(scope={"type": "http", "method": "GET", "headers": {}}),
+        request,
         "fragments/edit_category.html",
         {"t": transaction, "categories": categories},
     )

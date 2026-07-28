@@ -14,7 +14,7 @@ from app.ingestion.service import run_ingestion
 from app.integrations.line import format_daily_summary, send_message
 from app.logging_config import log_event
 from app.storage.database import get_connection
-from app.storage.queries import get_daily_summary_data
+from app.storage.queries import get_daily_summary_data, get_default_owner_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,11 @@ def run_ingestion_job(settings: Settings) -> dict | None:
 async def _send_daily_summary_async(settings: Settings) -> bool:
     db = await get_connection()
     try:
-        data = await get_daily_summary_data(db)
+        owner_user_id = await get_default_owner_user_id(db) if hasattr(db, "execute") else None
+        if owner_user_id is None:
+            data = await get_daily_summary_data(db)
+        else:
+            data = await get_daily_summary_data(db, owner_user_id=owner_user_id)
     finally:
         await db.close()
 

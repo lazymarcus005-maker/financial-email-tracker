@@ -8,7 +8,9 @@ import json
 import logging
 
 from app.classification.engine import CategoryEngine
+from app.config import get_settings
 from app.gmail import EmailMessage
+from app.gmail.authorize import token_exists, user_token_path
 from app.gmail.client import GmailClient
 from app.ingestion import persistence
 from app.parsers.base import Transaction
@@ -16,6 +18,16 @@ from app.parsers.registry import ParserRegistry
 from app.storage import queries
 
 logger = logging.getLogger(__name__)
+
+
+async def _categorize(engine: CategoryEngine, db, transaction: dict, **kwargs):
+    try:
+        return await engine.categorize(db, transaction, **kwargs)
+    except TypeError as e:
+        if "owner_user_id" not in str(e):
+            raise
+        kwargs.pop("owner_user_id", None)
+        return await engine.categorize(db, transaction, **kwargs)
 
 
 async def _fetch_and_parse(
@@ -32,13 +44,21 @@ async def reparse_transaction(
     gmail_client: GmailClient | None = None,
     registry: ParserRegistry | None = None,
     engine: CategoryEngine | None = None,
+    owner_user_id: int | None = None,
 ) -> dict:
     """Re-run the parser for an existing transaction row, updating it in place."""
-    row = await queries.get_transaction(db, transaction_id)
+    row = await queries.get_transaction(db, transaction_id, owner_user_id=owner_user_id)
     if row is None:
         return {"status": "not_found"}
 
-    gmail_client = gmail_client or GmailClient()
+    settings = get_settings()
+    if gmail_client is None and owner_user_id is not None and token_exists(user_token_path(owner_user_id)):
+        gmail_client = GmailClient(credentials_path=settings.GMAIL_CREDENTIALS_PATH, token_path=user_token_path(owner_user_id))
+    else:
+        gmail_client = gmail_client or GmailClient(
+            credentials_path=settings.GMAIL_CREDENTIALS_PATH,
+            token_path=settings.GMAIL_TOKEN_PATH,
+        )
     registry = registry or ParserRegistry()
     engine = engine or CategoryEngine()
 
@@ -64,8 +84,12 @@ async def reparse_transaction(
         return {"status": "failed", "warnings": warnings}
 
     manual_override = row["category"] if row["category_source"] == "manual" else None
-    category, category_source = await engine.categorize(
-        db, persistence.transaction_to_dict(transaction), manual_override=manual_override
+    category, category_source = await _categorize(
+        engine,
+        db,
+        persistence.transaction_to_dict(transaction),
+        manual_override=manual_override,
+        owner_user_id=owner_user_id,
     )
 
     await db.execute(
@@ -108,13 +132,21 @@ async def reparse_unknown(
     gmail_client: GmailClient | None = None,
     registry: ParserRegistry | None = None,
     engine: CategoryEngine | None = None,
+    owner_user_id: int | None = None,
 ) -> dict:
     """Re-run the parser for an unknown-pattern row. Promotes it to `transactions` on success."""
-    row = await queries.get_unknown(db, unknown_id)
+    row = await queries.get_unknown(db, unknown_id, owner_user_id=owner_user_id)
     if row is None:
         return {"status": "not_found"}
 
-    gmail_client = gmail_client or GmailClient()
+    settings = get_settings()
+    if gmail_client is None and owner_user_id is not None and token_exists(user_token_path(owner_user_id)):
+        gmail_client = GmailClient(credentials_path=settings.GMAIL_CREDENTIALS_PATH, token_path=user_token_path(owner_user_id))
+    else:
+        gmail_client = gmail_client or GmailClient(
+            credentials_path=settings.GMAIL_CREDENTIALS_PATH,
+            token_path=settings.GMAIL_TOKEN_PATH,
+        )
     registry = registry or ParserRegistry()
     engine = engine or CategoryEngine()
 
@@ -160,15 +192,27 @@ async def reparse_unknown(
         logger.warning(f"Reparse of unknown pattern {unknown_id} still failed: {warnings}")
         return {"status": "failed", "warnings": warnings}
 
-    if await persistence.already_ingested(db, row["gmail_message_id"]):
+    if await persistence.already_ingested(db, row["gmail_message_id"], owner_user_id=owner_user_id):
         logger.info(f"Reparse of unknown pattern {unknown_id} now succeeds but transaction already exists")
-        transaction_id = await queries.get_transaction_id_by_gmail_message_id(db, row["gmail_message_id"])
+        transaction_id = await queries.get_transaction_id_by_gmail_message_id(
+            db, row["gmail_message_id"], owner_user_id=owner_user_id
+        )
     else:
         bank = registry.identify_bank(message.sender)
-        category, category_source = await engine.categorize(db, persistence.transaction_to_dict(transaction))
-        transaction_id = await persistence.insert_transaction(db, message, transaction, category, category_source, bank=bank)
+        category, category_source = await _categorize(
+            engine, db, persistence.transaction_to_dict(transaction), owner_user_id=owner_user_id
+        )
+        transaction_id = await persistence.insert_transaction(
+            db,
+            message,
+            transaction,
+            category,
+            category_source,
+            owner_user_id=owner_user_id,
+            bank=bank,
+        )
 
-    await persistence.resolve_unknown(db, unknown_id, transaction_id)
+    await persistence.resolve_unknown(db, unknown_id, transaction_id, owner_user_id=owner_user_id)
     await db.commit()
     logger.info(f"Reparsed unknown pattern {unknown_id} -> transaction {transaction_id}")
     return {"status": "parsed", "transaction_id": transaction_id}

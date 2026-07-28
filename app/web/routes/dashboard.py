@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from app.config import Settings, get_settings
 from app.ingestion.scheduler import next_scheduled_run
 from app.storage import queries
-from app.web.deps import get_db, templates
+from app.web.deps import get_current_user_id, get_db, templates
 
 logger = logging.getLogger(__name__)
 
@@ -19,18 +19,19 @@ router = APIRouter(tags=["dashboard"])
 async def dashboard(
     request: Request,
     db: aiosqlite.Connection = Depends(get_db),
+    owner_user_id: int = Depends(get_current_user_id),
     days: int = Query(7),
     settings: Settings = Depends(get_settings),
 ):
     days = days if days in (7, 14, 30) else 7
-    stats = await queries.get_dashboard_stats(db)
-    expense_summaries = await queries.get_expense_summary_windows(db)
-    expense_days = await queries.get_expense_by_day(db, days=days)
+    stats = await queries.get_dashboard_stats(db, owner_user_id=owner_user_id)
+    expense_summaries = await queries.get_expense_summary_windows(db, owner_user_id=owner_user_id)
+    expense_days = await queries.get_expense_by_day(db, days=days, owner_user_id=owner_user_id)
     max_expense = max((item["total"] for item in expense_days), default=0)
     total_expense = sum(item["total"] for item in expense_days)
-    expense_by_bank = await queries.get_expense_by_bank(db, days=days)
+    expense_by_bank = await queries.get_expense_by_bank(db, days=days, owner_user_id=owner_user_id)
     pie_segments = queries.build_pie_segments(expense_by_bank)
-    runs, _ = await queries.list_runs(db, page=1, page_size=5)
+    runs, _ = await queries.list_runs(db, page=1, page_size=5, owner_user_id=owner_user_id)
     return templates.TemplateResponse(
         request,
         "dashboard.html",

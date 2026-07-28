@@ -15,7 +15,8 @@ SCHEMA_SQL = """
 -- Transactions from email parser
 CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    transaction_id TEXT UNIQUE,
+    owner_user_id INTEGER,
+    transaction_id TEXT,
     transaction_type TEXT NOT NULL,
     direction TEXT NOT NULL,
     status TEXT NOT NULL,
@@ -27,19 +28,23 @@ CREATE TABLE IF NOT EXISTS transactions (
     description TEXT,
     category TEXT,
     category_source TEXT,  -- manual, history, rule, ai, uncategorized
+    bank TEXT,
     parser_version TEXT,
     parse_status TEXT,  -- complete, partial, failed, ignored
     parse_confidence REAL DEFAULT 1.0,
     warnings_json TEXT DEFAULT '[]',
     raw_fields_json TEXT,
-    gmail_message_id TEXT UNIQUE NOT NULL,
+    gmail_message_id TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(owner_user_id, transaction_id),
+    UNIQUE(owner_user_id, gmail_message_id)
 );
 
 -- Ingestion state
 CREATE TABLE IF NOT EXISTS ingestion_state (
     id INTEGER PRIMARY KEY,
+    owner_user_id INTEGER UNIQUE,
     last_success_at DATETIME,
     last_error TEXT
 );
@@ -47,6 +52,7 @@ CREATE TABLE IF NOT EXISTS ingestion_state (
 -- Cron run history
 CREATE TABLE IF NOT EXISTS ingestion_runs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_user_id INTEGER,
     run_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     emails_checked INTEGER,
     inserted INTEGER,
@@ -58,15 +64,18 @@ CREATE TABLE IF NOT EXISTS ingestion_runs (
 -- Category mappings (merchant -> category)
 CREATE TABLE IF NOT EXISTS counterparty_mapping (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    counterparty TEXT UNIQUE NOT NULL,
+    owner_user_id INTEGER,
+    counterparty TEXT NOT NULL,
     category TEXT NOT NULL,
     source TEXT,  -- manual, rule
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(owner_user_id, counterparty)
 );
 
 -- Unknown/unparseable emails
 CREATE TABLE IF NOT EXISTS unknown_patterns (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_user_id INTEGER,
     subject TEXT,
     sender TEXT,
     transaction_code TEXT,
@@ -75,24 +84,44 @@ CREATE TABLE IF NOT EXISTS unknown_patterns (
     raw_fields_json TEXT,
     parser_version TEXT,
     status TEXT DEFAULT 'pending',  -- pending, ignored
-    gmail_message_id TEXT UNIQUE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    gmail_message_id TEXT,
+    received_at DATETIME,
+    resolved_transaction_id INTEGER,
+    resolved_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(owner_user_id, gmail_message_id)
 );
 
 -- Subjects the user does not want to fetch/import again
 CREATE TABLE IF NOT EXISTS ignored_subjects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    subject TEXT UNIQUE NOT NULL,
+    owner_user_id INTEGER,
+    subject TEXT NOT NULL,
     reason TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(owner_user_id, subject)
+);
+
+-- Application users
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    display_name TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_transactions_occurred_at ON transactions(occurred_at);
+CREATE INDEX IF NOT EXISTS idx_transactions_transaction_id ON transactions(transaction_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_gmail_id ON transactions(gmail_message_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
 CREATE INDEX IF NOT EXISTS idx_ingestion_runs_run_at ON ingestion_runs(run_at);
 CREATE INDEX IF NOT EXISTS idx_ignored_subjects_subject ON ignored_subjects(subject);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 """
 
 
@@ -104,6 +133,7 @@ async def init_db():
         await configure_connection(db)
         await db.executescript(SCHEMA_SQL)
         await _migrate_schema(db)
+        await migrate_owner_scope(db)
         await db.commit()
         logger.info(f"Database initialized: {DATABASE_PATH}")
 
@@ -136,6 +166,206 @@ async def configure_connection(db: aiosqlite.Connection) -> None:
     await db.execute(f"PRAGMA busy_timeout = {SQLITE_BUSY_TIMEOUT_MS}")
     await db.execute("PRAGMA journal_mode = WAL")
     await db.execute("PRAGMA synchronous = NORMAL")
+
+
+async def _columns(db: aiosqlite.Connection, table: str) -> set[str]:
+    cursor = await db.execute(f"PRAGMA table_info({table})")
+    rows = await cursor.fetchall()
+    await cursor.close()
+    return {row[1] for row in rows}
+
+
+async def _first_admin_id(db: aiosqlite.Connection) -> int | None:
+    cursor = await db.execute("SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1")
+    row = await cursor.fetchone()
+    await cursor.close()
+    return row[0] if row else None
+
+
+async def _table_sql(db: aiosqlite.Connection, table: str) -> str:
+    cursor = await db.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", (table,))
+    row = await cursor.fetchone()
+    await cursor.close()
+    return row[0] if row and row[0] else ""
+
+
+async def _add_owner_column(db: aiosqlite.Connection, table: str) -> None:
+    columns = await _columns(db, table)
+    if "owner_user_id" not in columns:
+        await db.execute(f"ALTER TABLE {table} ADD COLUMN owner_user_id INTEGER")
+
+
+async def _backfill_owner(db: aiosqlite.Connection, table: str) -> None:
+    owner_user_id = await _first_admin_id(db)
+    if owner_user_id is not None:
+        await db.execute(f"UPDATE {table} SET owner_user_id = ? WHERE owner_user_id IS NULL", (owner_user_id,))
+
+
+async def _rebuild_transactions(db: aiosqlite.Connection) -> None:
+    sql = await _table_sql(db, "transactions")
+    if "UNIQUE(owner_user_id, gmail_message_id)" in sql:
+        return
+    await db.executescript(
+        """
+        ALTER TABLE transactions RENAME TO transactions_legacy;
+        CREATE TABLE transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner_user_id INTEGER,
+            transaction_id TEXT,
+            transaction_type TEXT NOT NULL,
+            direction TEXT NOT NULL,
+            status TEXT NOT NULL,
+            occurred_at DATETIME NOT NULL,
+            amount REAL NOT NULL,
+            fee REAL DEFAULT 0.0,
+            available_balance REAL,
+            counterparty TEXT,
+            description TEXT,
+            category TEXT,
+            category_source TEXT,
+            bank TEXT,
+            parser_version TEXT,
+            parse_status TEXT,
+            parse_confidence REAL DEFAULT 1.0,
+            warnings_json TEXT DEFAULT '[]',
+            raw_fields_json TEXT,
+            gmail_message_id TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(owner_user_id, transaction_id),
+            UNIQUE(owner_user_id, gmail_message_id)
+        );
+        INSERT OR IGNORE INTO transactions (
+            id, owner_user_id, transaction_id, transaction_type, direction, status,
+            occurred_at, amount, fee, available_balance, counterparty, description,
+            category, category_source, bank, parser_version, parse_status, parse_confidence,
+            warnings_json, raw_fields_json, gmail_message_id, created_at, updated_at
+        )
+        SELECT
+            id, owner_user_id, transaction_id, transaction_type, direction, status,
+            occurred_at, amount, fee, available_balance, counterparty, description,
+            category, category_source, bank, parser_version, parse_status, parse_confidence,
+            warnings_json, raw_fields_json, gmail_message_id, created_at, updated_at
+        FROM transactions_legacy;
+        DROP TABLE transactions_legacy;
+        """
+    )
+
+
+async def _rebuild_counterparty_mapping(db: aiosqlite.Connection) -> None:
+    sql = await _table_sql(db, "counterparty_mapping")
+    if "UNIQUE(owner_user_id, counterparty)" in sql:
+        return
+    await db.executescript(
+        """
+        ALTER TABLE counterparty_mapping RENAME TO counterparty_mapping_legacy;
+        CREATE TABLE counterparty_mapping (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner_user_id INTEGER,
+            counterparty TEXT NOT NULL,
+            category TEXT NOT NULL,
+            source TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(owner_user_id, counterparty)
+        );
+        INSERT OR IGNORE INTO counterparty_mapping (
+            id, owner_user_id, counterparty, category, source, created_at
+        )
+        SELECT id, owner_user_id, counterparty, category, source, created_at
+        FROM counterparty_mapping_legacy;
+        DROP TABLE counterparty_mapping_legacy;
+        """
+    )
+
+
+async def _rebuild_unknown_patterns(db: aiosqlite.Connection) -> None:
+    sql = await _table_sql(db, "unknown_patterns")
+    if "UNIQUE(owner_user_id, gmail_message_id)" in sql:
+        return
+    await db.executescript(
+        """
+        ALTER TABLE unknown_patterns RENAME TO unknown_patterns_legacy;
+        CREATE TABLE unknown_patterns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner_user_id INTEGER,
+            subject TEXT,
+            sender TEXT,
+            transaction_code TEXT,
+            amount REAL,
+            warnings_json TEXT DEFAULT '[]',
+            raw_fields_json TEXT,
+            parser_version TEXT,
+            status TEXT DEFAULT 'pending',
+            gmail_message_id TEXT,
+            received_at DATETIME,
+            resolved_transaction_id INTEGER,
+            resolved_at DATETIME,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(owner_user_id, gmail_message_id)
+        );
+        INSERT OR IGNORE INTO unknown_patterns (
+            id, owner_user_id, subject, sender, transaction_code, amount, warnings_json,
+            raw_fields_json, parser_version, status, gmail_message_id, received_at,
+            resolved_transaction_id, resolved_at, created_at
+        )
+        SELECT
+            id, owner_user_id, subject, sender, transaction_code, amount, warnings_json,
+            raw_fields_json, parser_version, status, gmail_message_id, received_at,
+            resolved_transaction_id, resolved_at, created_at
+        FROM unknown_patterns_legacy;
+        DROP TABLE unknown_patterns_legacy;
+        """
+    )
+
+
+async def _rebuild_ignored_subjects(db: aiosqlite.Connection) -> None:
+    sql = await _table_sql(db, "ignored_subjects")
+    if "UNIQUE(owner_user_id, subject)" in sql:
+        return
+    await db.executescript(
+        """
+        ALTER TABLE ignored_subjects RENAME TO ignored_subjects_legacy;
+        CREATE TABLE ignored_subjects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner_user_id INTEGER,
+            subject TEXT NOT NULL,
+            reason TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(owner_user_id, subject)
+        );
+        INSERT OR IGNORE INTO ignored_subjects (id, owner_user_id, subject, reason, created_at)
+        SELECT id, owner_user_id, subject, reason, created_at
+        FROM ignored_subjects_legacy;
+        DROP TABLE ignored_subjects_legacy;
+        """
+    )
+
+
+async def migrate_owner_scope(db: aiosqlite.Connection) -> None:
+    """Upgrade existing runtime tables from shared data to owner-scoped data."""
+    for table in (
+        "transactions",
+        "ingestion_state",
+        "ingestion_runs",
+        "counterparty_mapping",
+        "unknown_patterns",
+        "ignored_subjects",
+    ):
+        await _add_owner_column(db, table)
+        await _backfill_owner(db, table)
+
+    await _rebuild_transactions(db)
+    await _rebuild_counterparty_mapping(db)
+    await _rebuild_unknown_patterns(db)
+    await _rebuild_ignored_subjects(db)
+
+    await db.executescript(
+        """
+        CREATE INDEX IF NOT EXISTS idx_transactions_owner ON transactions(owner_user_id);
+        CREATE INDEX IF NOT EXISTS idx_transactions_transaction_id ON transactions(transaction_id);
+        CREATE INDEX IF NOT EXISTS idx_ingestion_runs_owner ON ingestion_runs(owner_user_id);
+        """
+    )
 
 
 async def get_connection() -> aiosqlite.Connection:

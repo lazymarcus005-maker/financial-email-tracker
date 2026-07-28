@@ -3,6 +3,8 @@
 # Gmail
 GMAIL_QUERY: "from:(KPLUS@kasikornbank.com OR admin@krungsri.com OR scbeasynet@scb.co.th OR LHBYou@lhbank.co.th) newer_than:2d -subject:\"Login Notification\""
 GMAIL_CREDENTIALS_PATH: "secrets/credentials.json"
+# Legacy/shared scheduler fallback. Normal manual ingestion uses per-user
+# tokens under secrets/users/{user_id}/gmail-token.json.
 GMAIL_TOKEN_PATH: "secrets/token.json"
 
 # Database
@@ -32,6 +34,9 @@ PARSER_VERSION: "1.0"
 # Web
 WEB_HOST: "0.0.0.0"
 WEB_PORT: 8000
+AUTH_SECRET_KEY: "{{ env.AUTH_SECRET_KEY }}"
+AUTH_COOKIE_NAME: "fet_session"
+AUTH_SESSION_TTL_SECONDS: 604800
 
 # Logging
 LOG_LEVEL: "INFO"

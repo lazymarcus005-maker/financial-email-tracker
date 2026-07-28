@@ -21,14 +21,28 @@
             <div class="flex items-center justify-between h-14">
                 <div class="flex items-center gap-6">
                     <span class="font-semibold text-neutral-900">Financial Email Tracker</span>
+                    {% set current_user = request.state.current_user %}
+                    {% if current_user %}
                     <div class="flex items-center gap-1">
                         <a href="/" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Dashboard</a>
                         <a href="/transactions" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path.startswith('/transactions') %}aria-current="page"{% endif %}>Transactions</a>
                         <a href="/unknown" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path.startswith('/unknown') %}aria-current="page"{% endif %}>Unknown</a>
                         <a href="/mappings" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path.startswith('/mappings') %}aria-current="page"{% endif %}>Mappings</a>
                         <a href="/settings" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path.startswith('/settings') %}aria-current="page"{% endif %}>Settings</a>
+                        {% if current_user.role == 'admin' %}
+                        <a href="/users" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path.startswith('/users') %}aria-current="page"{% endif %}>Users</a>
+                        {% endif %}
                     </div>
+                    {% endif %}
                 </div>
+                {% if current_user %}
+                <div class="flex items-center gap-3">
+                    <span class="hidden sm:inline text-sm text-neutral-500">{{ current_user.display_name }}</span>
+                    <form method="post" action="/logout">
+                        <button type="submit" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100">Logout</button>
+                    </form>
+                </div>
+                {% endif %}
             </div>
         </div>
     </nav>

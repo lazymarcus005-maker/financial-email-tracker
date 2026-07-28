@@ -54,6 +54,10 @@ class Settings:
     WEB_HOST: str = "0.0.0.0"
     WEB_PORT: int = 8000
 
+    AUTH_SECRET_KEY: str | None = None
+    AUTH_COOKIE_NAME: str = "fet_session"
+    AUTH_SESSION_TTL_SECONDS: int = 604800
+
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
 

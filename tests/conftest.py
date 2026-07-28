@@ -5,6 +5,7 @@ import asyncio
 import pytest
 
 from app.storage import database
+from app.gmail import authorize
 
 
 @pytest.fixture
@@ -12,6 +13,7 @@ def temp_db_path(tmp_path, monkeypatch):
     """Point app.storage.database at a fresh temp DB file and initialize its schema."""
     db_path = tmp_path / "test.db"
     monkeypatch.setattr(database, "DATABASE_PATH", db_path)
+    monkeypatch.setattr(authorize, "USER_TOKEN_ROOT", tmp_path / "gmail-users")
     asyncio.run(database.init_db())
     return db_path
 

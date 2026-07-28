@@ -8,39 +8,61 @@ cp .env.example .env
 mkdir -p secrets
 ```
 
-Edit `.env` - at minimum set `LINE_CHANNEL_ACCESS_TOKEN`/`LINE_USER_ID` (see
-below) if you want the daily summary; Gmail credentials live in `secrets/`,
-not `.env`. `docker-compose.yml` reads `.env` automatically and forwards
-these as container environment variables, which override `config.yaml` for
-any scalar setting (see `app/config.py`).
+Edit `.env` - at minimum set `AUTH_SECRET_KEY`; set
+`LINE_CHANNEL_ACCESS_TOKEN`/`LINE_USER_ID` (see below) if you want the daily
+summary. Gmail OAuth client credentials live in `secrets/`, not `.env`.
+`docker-compose.yml` reads `.env` automatically and forwards these as
+container environment variables, which override `config.yaml` for any scalar
+setting (see `app/config.py`).
+
+Generate a strong auth secret:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+On first startup, open the app and create the first admin user at `/setup`.
+Existing runtime data is assigned to that first admin during migration/setup.
 
 ## 2. Gmail OAuth setup
 
 1. In [Google Cloud Console](https://console.cloud.google.com/), create a
    project (or reuse one), enable the **Gmail API**, and create an OAuth
-   **client ID** of type **Desktop app**.
-2. Download the client secret JSON and save it as `secrets/credentials.json`.
-3. Run the OAuth flow **once, locally** (it opens a browser, so this isn't
-   done inside the container):
+   **client ID**.
+2. For the in-app **Connect Gmail** button, use an OAuth client of type
+   **Web application** and add the exact authorized redirect URI:
+   - Local: `http://localhost:8000/gmail/oauth2/callback`
+   - Production: `https://your-domain/gmail/oauth2/callback`
+   - If you use `127.0.0.1` or another port locally, add that exact URI too.
+3. Download the client secret JSON and save it as `secrets/credentials.json`.
+4. Each user connects Gmail from `/settings`. The app stores a readonly Gmail
+   token per user at `secrets/users/{user_id}/gmail-token.json`. Manual
+   ingestion and reparse use the logged-in user's token.
+5. Optional legacy fallback for scheduled ingestion: you can still create a
+   shared token with the CLI flow:
    ```bash
    python -m venv venv && source venv/bin/activate
    pip install -r requirements.txt
    python -m app.gmail.authorize
    ```
-   This writes `secrets/token.json`. The scope requested is
-   `gmail.readonly` - the app never sends, deletes, or modifies mail.
-4. Both files are picked up by the container via the `./secrets:/app/secrets`
-   bind mount in `docker-compose.yml`. `secrets/` is gitignored - never
-   commit either file.
+   This writes `secrets/token.json`. Scheduled ingestion uses the first
+   active admin's per-user token when available, then falls back to this
+   legacy shared token.
+6. The scope requested is `gmail.readonly` - the app never sends, deletes, or
+   modifies mail.
+7. Files under `secrets/` are picked up by the container via the
+   `./secrets:/app/secrets` bind mount in `docker-compose.yml`. `secrets/` is
+   gitignored - never commit credentials or tokens.
    The container entrypoint fixes ownership of mounted `data/`, `secrets/`,
-   and `logs/` before starting the app so `token.json` remains readable and
+   and `logs/` before starting the app so tokens remain readable and
    refreshable after deploy.
-5. Set `GMAIL_QUERY` in `config.yaml` to scope which emails are ingested,
+8. Set `GMAIL_QUERY` in `config.yaml` to scope which emails are ingested,
    e.g. `from:(KPLUS@kasikornbank.com) newer_than:90d`.
 
-Token refresh is automatic (`app/gmail/authorize.py` refreshes an expired
-token using the stored refresh token). If refresh ever fails (token
-revoked), delete `secrets/token.json` and repeat step 3.
+Token refresh is automatic (`app/gmail/authorize.py` refreshes expired tokens
+using stored refresh tokens). If refresh fails for a user, open Settings,
+disconnect Gmail, and connect again. If the legacy fallback token fails,
+delete `secrets/token.json` and repeat the CLI flow.
 
 ## 3. LINE Bot setup
 
@@ -61,10 +83,18 @@ revoked), delete `secrets/token.json` and repeat step 3.
 
 ## 4. Docker Compose deploy
 
+```bash
+docker compose up -d --build
 ```
 
 - App listens on `:8000`, backed by the `finance_data` named volume for
-  SQLite and the `./secrets` bind mount for Gmail credentials.
+  SQLite and the `./secrets` bind mount for Gmail credentials and user
+  tokens.
+- `/health`, `/login`, `/setup`, and static assets are public. All runtime
+  pages and `/api/*` require login.
+- Admins manage users at `/users`. Runtime data is scoped per user; exports,
+  imports, mappings, ignored subjects, transaction lists, and dashboard stats
+  operate on the logged-in user's data only.
 - The container runs as non-root (`appuser`), and Docker reports it healthy
   once `curl -f http://localhost:8000/health` succeeds (30s interval, 3
   retries, 5s start period - see `Dockerfile`/`docker-compose.yml`).
@@ -93,7 +123,7 @@ back it up with `docker run --rm -v financial-email-tracker_finance_data:/data -
 - **Health**: `GET /health` (also what the container healthcheck polls).
 - **Ingestion history**: `GET /api/runs` (or the dashboard at `/`) - counts
   of emails checked/inserted/duplicates/failed per cron run, plus
-  `last_sync`.
+  `last_sync`, scoped to the logged-in user.
 - **Parse failures**: `GET /api/unknown` - emails that failed to parse, with
   warnings and raw fields, so you can extend `app/parsers/kbank/aliases.py`
   or a new bank's parser without losing data (nothing is discarded, just

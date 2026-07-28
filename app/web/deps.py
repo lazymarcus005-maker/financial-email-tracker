@@ -2,10 +2,12 @@
 
 from pathlib import Path
 
+from fastapi import HTTPException, Request
 from fastapi.templating import Jinja2Templates
 
 from app.classification.engine import CategoryEngine
 from app.config import get_settings
+from app.gmail.authorize import token_exists, user_token_path
 from app.gmail.client import GmailClient
 from app.parsers.registry import ParserRegistry
 from app.storage.database import get_connection
@@ -62,6 +64,14 @@ async def get_db():
         await db.close()
 
 
+def get_current_user(request: Request) -> dict:
+    return request.state.current_user
+
+
+def get_current_user_id(request: Request) -> int:
+    return request.state.current_user["id"]
+
+
 def get_category_engine() -> CategoryEngine:
     settings = get_settings()
     return CategoryEngine(
@@ -71,8 +81,13 @@ def get_category_engine() -> CategoryEngine:
     )
 
 
-def get_gmail_client() -> GmailClient:
-    return GmailClient()
+def get_gmail_client(request: Request) -> GmailClient:
+    user_id = request.state.current_user["id"]
+    settings = get_settings()
+    token_path = user_token_path(user_id)
+    if not token_exists(token_path):
+        raise HTTPException(status_code=400, detail="Connect Gmail in Settings before running this action")
+    return GmailClient(credentials_path=settings.GMAIL_CREDENTIALS_PATH, token_path=token_path)
 
 
 def get_parser_registry() -> ParserRegistry:

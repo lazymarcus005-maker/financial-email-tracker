@@ -28,10 +28,12 @@ pytest --cov=app --cov-report=term-missing   # coverage
 
 Tests don't touch your real Gmail/LINE/database - `tests/conftest.py`
 provides `temp_db_path`/`db_connection` fixtures that point
-`app.storage.database` at a fresh temp SQLite file per test, and
-`tests/integration/conftest.py` adds `make_message`/`fake_reader` fixtures
-that fake out `GmailReader`. LINE/Ollama calls are mocked at the `httpx`
-level in the relevant tests - nothing goes over the network.
+`app.storage.database` at a fresh temp SQLite file per test and redirects
+per-user Gmail token storage to a temp directory. Route tests create/login a
+test admin user before exercising protected pages. `tests/integration/conftest.py`
+adds `make_message`/`fake_reader` fixtures that fake out `GmailReader`.
+LINE/Ollama calls are mocked at the `httpx` level in the relevant tests -
+nothing goes over the network.
 
 ## Running locally
 
@@ -49,10 +51,21 @@ python -m app.ingestion.scheduler
 python -m app.gmail.authorize
 ```
 
+On a fresh local database, open `http://localhost:8000/setup` and create the
+first admin user. After login, use `/settings` → **Connect Gmail** to create a
+per-user Gmail token at `secrets/users/{user_id}/gmail-token.json`. The CLI
+`python -m app.gmail.authorize` command is still useful for generating the
+legacy shared `secrets/token.json` scheduler fallback, but manual web
+ingestion uses the logged-in user's token.
+
 `config.yaml` controls the cron schedule (`SCHEDULE`, in `TIMEZONE`) and the
 Gmail search query (`GMAIL_QUERY`). Any scalar setting can be overridden by
 an environment variable of the same name without touching `config.yaml`
 (this is how Docker Compose / `.env` take effect - see `app/config.py`).
+
+Set `AUTH_SECRET_KEY` in `.env` for any long-running local instance where you
+care about session continuity. Without it, the app uses a process-local
+fallback secret and existing login cookies stop working after restart.
 
 ## Code layout
 

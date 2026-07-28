@@ -10,6 +10,10 @@ transactions and fixing anything the parser got wrong.
 ## Features
 
 - Gmail Reader (OAuth2, readonly)
+- User management with login/logout, admin-only user administration, and
+  per-user data isolation
+- Per-user Gmail connection from Settings (each user stores their own OAuth
+  token under `secrets/users/{user_id}/`)
 - KBank email parser (Thai + English, bilingual-aware)
 - Transaction type/status/direction detection (16+ types)
 - SQLite storage with deduplication (by Gmail message id, bank reference
@@ -41,7 +45,9 @@ cp .env.example .env
 uvicorn app.web.main:app --reload
 ```
 
-Open http://localhost:8000 for the dashboard. See [DEVELOPMENT.md](DEVELOPMENT.md)
+Open http://localhost:8000. On a fresh database the app redirects to `/setup`
+so you can create the first admin user. After login, go to **Settings →
+Connect Gmail** before running ingestion. See [DEVELOPMENT.md](DEVELOPMENT.md)
 for running tests and more local-dev detail.
 
 ## Quick Start (Docker)
@@ -61,8 +67,8 @@ The app listens on `:8000` and the container reports healthy once
 docker compose --profile ai up --build
 ```
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for the full production setup (Gmail
-OAuth, LINE bot, volumes, monitoring).
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the full production setup (auth secret,
+Gmail OAuth redirect URIs, LINE bot, volumes, monitoring).
 
 ## Configuration
 
@@ -74,7 +80,9 @@ directly. See `.env.example` for the full list of variables:
 | Variable | Purpose |
 |---|---|
 | `DATABASE_PATH` | Path to the SQLite file |
-| `GMAIL_CREDENTIALS_PATH` / `GMAIL_TOKEN_PATH` | Gmail OAuth2 client + token |
+| `AUTH_SECRET_KEY` | Secret used to sign login/session cookies |
+| `GMAIL_CREDENTIALS_PATH` | Gmail OAuth2 client JSON used by all users |
+| `GMAIL_TOKEN_PATH` | Legacy/shared Gmail token fallback for scheduler only |
 | `LINE_CHANNEL_ACCESS_TOKEN` / `LINE_USER_ID` | LINE Messaging API push target |
 | `AI_ENABLED` / `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | Optional AI-assisted categorization |
 | `TIMEZONE` | Cron schedule timezone (default `Asia/Bangkok`) |
@@ -82,6 +90,25 @@ directly. See `.env.example` for the full list of variables:
 
 Cron times and the Gmail search query live in `config.yaml` (`SCHEDULE`,
 `GMAIL_QUERY`).
+
+## Users and Data Ownership
+
+The app now treats users as separate owners of runtime data. Each user's
+dashboard, transactions, unknown emails, counterparty mappings, ignored
+subjects, ingestion runs, imports, and exports are scoped to their own
+`owner_user_id`. Admins can create and manage users at `/users`, but normal
+runtime pages still show only the logged-in user's data.
+
+On an existing database, startup migration adds `owner_user_id` columns and
+assigns unowned runtime data to the first admin user. If there are no users
+yet, the first `/setup` admin claims existing runtime data.
+
+Gmail access is also per user. `secrets/credentials.json` is the shared OAuth
+client configuration, while user tokens are stored separately as
+`secrets/users/{user_id}/gmail-token.json`. Manual ingestion and reparse use
+the logged-in user's Gmail token. Scheduled ingestion uses the first active
+admin's Gmail token when available, then falls back to the legacy
+`GMAIL_TOKEN_PATH` token.
 
 ## API Endpoints
 
@@ -92,6 +119,9 @@ matching HTML page.
 |---|---|---|
 | `GET` | `/` | Dashboard (income/expense today, uncategorized count, last sync) |
 | `GET` | `/health` | Health check (`{"status": "ok", "version": ...}`) |
+| `GET` / `POST` | `/login` | Login form and login submit |
+| `POST` | `/logout` | End the current session |
+| `GET` / `POST` | `/setup` | Create the first admin user on a fresh install |
 | `GET` | `/api/transactions` | Paginated/filtered transaction list (date range, category, type, direction, search) |
 | `GET` | `/api/transactions/{id}` | Transaction detail |
 | `PATCH` | `/api/transactions/{id}` | Manual category override and/or ignore toggle |
@@ -104,6 +134,11 @@ matching HTML page.
 | `POST` | `/api/ingestion/run` | Trigger an ingestion pass immediately |
 | `POST` | `/api/ingestion/retry/{run_id}` | Retry all currently-pending unparseable emails |
 | `GET` | `/api/settings` | Read-only, non-secret settings snapshot |
+| `GET` | `/api/gmail/status` | Gmail connection status for the logged-in user |
+| `POST` | `/api/gmail/disconnect` | Remove the logged-in user's Gmail token |
+| `GET` | `/gmail/connect` | Start Gmail OAuth for the logged-in user |
+| `GET` | `/gmail/oauth2/callback` | Gmail OAuth callback |
+| `GET` / `POST` / `PATCH` | `/api/users` | Admin-only user management |
 
 ## Sample KBank Email
 
@@ -159,7 +194,7 @@ tests/
   test_performance.py  # Parse throughput + index-usage regression guards
 
 data/                  # SQLite database (gitignored)
-secrets/                # Gmail credentials.json / token.json (gitignored)
+secrets/                # Gmail credentials.json, legacy token.json, per-user tokens (gitignored)
 ```
 
 ## Troubleshooting
@@ -167,13 +202,23 @@ secrets/                # Gmail credentials.json / token.json (gitignored)
 - **`GET /health` fails / container unhealthy** - check `docker compose logs
   app`; most often a missing/invalid `config.yaml` or a bad `DATABASE_PATH`
   the app can't create.
+- **Login required / first visit redirects to setup** - create the first
+  admin user at `/setup`, then set `AUTH_SECRET_KEY` in `.env` before
+  production use.
+- **Manual ingestion says Gmail must be connected** - login as that user,
+  open `/settings`, and click **Connect Gmail**. Each user needs their own
+  Gmail connection.
 - **No transactions after ingestion runs** - check `/api/unknown` for emails
   that failed to parse, and their `warnings`. A KBank email with an unusual
   wording can end up with `parse_status: partial` (still inserted) or
   `failed` (logged to `unknown_patterns`, not inserted).
-- **Gmail 401 / re-auth loop** - delete `secrets/token.json` and re-run
-  `python -m app.gmail.authorize` (see DEPLOYMENT.md); the refresh token may
-  have been revoked.
+- **Gmail OAuth redirect mismatch** - the redirect URI in Google Cloud must
+  exactly match the app URL, e.g.
+  `http://localhost:8000/gmail/oauth2/callback` locally or
+  `https://your-domain/gmail/oauth2/callback` in production.
+- **Gmail 401 / re-auth loop** - for per-user connections, use Settings →
+  Disconnect and Connect Gmail again. For the legacy scheduler fallback,
+  delete `secrets/token.json` and re-run `python -m app.gmail.authorize`.
 - **LINE summary never arrives** - `GET /api/settings` shows
   `line_configured`; if `false`, `LINE_CHANNEL_ACCESS_TOKEN`/`LINE_USER_ID`
   aren't set. Check the `daily_summary_sent` / `ingestion_error` events in
@@ -190,5 +235,5 @@ secrets/                # Gmail credentials.json / token.json (gitignored)
 
 ## Status
 
-Version 2.0 - Phase 3 (Docker, integration tests, edge cases, production
-readiness) complete.
+Version 2.1 - user management, per-user data isolation, and per-user Gmail
+OAuth are in place.

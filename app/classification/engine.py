@@ -63,6 +63,7 @@ class CategoryEngine:
         db: aiosqlite.Connection,
         transaction: dict,
         manual_override: str | None = None,
+        owner_user_id: int | None = None,
     ) -> tuple[str, str]:
         """Categorize a transaction. Returns (category, source)."""
         if manual_override:
@@ -70,7 +71,7 @@ class CategoryEngine:
 
         counterparty = transaction.get("counterparty")
 
-        history_category = await history.lookup(db, counterparty)
+        history_category = await history.lookup(db, counterparty, owner_user_id=owner_user_id)
         if history_category:
             return history_category, CategorySource.HISTORY.value
 

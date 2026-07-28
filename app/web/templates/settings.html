@@ -5,6 +5,32 @@
 {% block content %}
 <h1 class="text-xl font-semibold text-neutral-900 mb-6">Settings</h1>
 
+<div class="card mb-6">
+    <h2 class="text-sm font-medium text-neutral-900 mb-3">Gmail Account</h2>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <div class="text-sm text-neutral-900">
+                <span class="badge {% if settings.gmail_connected %}badge-success{% else %}badge-warning{% endif %}">
+                    {{ 'Connected' if settings.gmail_connected else 'Not connected' }}
+                </span>
+            </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="/gmail/connect" class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700">Connect Gmail</a>
+            {% if settings.gmail_connected %}
+            <button
+                class="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+                hx-post="/api/gmail/disconnect"
+                hx-target="#gmail-status"
+                hx-swap="outerHTML"
+                hx-confirm="Disconnect Gmail for this user?"
+            >Disconnect</button>
+            {% endif %}
+        </div>
+    </div>
+    <div id="gmail-status" class="text-sm text-neutral-500 mt-3">Manual ingestion uses the Gmail account connected to your user.</div>
+</div>
+
 <div class="card">
     <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
         <div>
