@@ -55,6 +55,11 @@ def _thai_date_format(value: str | None, fmt: str = "short") -> str:
 
 templates.env.filters["thai_date"] = _thai_date_format
 
+_tailwind_css_path = Path(__file__).parent / "static" / "tailwind.css"
+templates.env.globals["asset_version"] = (
+    str(int(_tailwind_css_path.stat().st_mtime)) if _tailwind_css_path.exists() else "0"
+)
+
 
 async def get_db():
     db = await get_connection()
