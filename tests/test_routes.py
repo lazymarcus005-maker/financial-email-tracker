@@ -250,6 +250,53 @@ def test_transaction_detail_page_404_for_missing(client):
 
 
 @pytest.mark.asyncio
+async def test_transaction_detail_modal_route(client, db_connection):
+    tx_id = await _insert_transaction(db_connection)
+    resp = client.get(f"/transactions/{tx_id}/modal")
+    assert resp.status_code == 200
+    assert "Transaction #" in resp.text
+
+
+def test_transaction_detail_modal_404_for_missing(client):
+    resp = client.get("/transactions/999999/modal")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_transaction_raw_email_renders_fragment(client, db_connection, monkeypatch):
+    tx_id = await _insert_transaction(db_connection)
+
+    class FakeMessage:
+        sender = "notify@kasikornbank.com"
+        subject = "K PLUS: Transfer Successful"
+        received_at = "2026-07-27 10:00:00"
+        body_text = "Transaction Date: 27/07/2026\nAmount: 100.00 THB"
+
+    class FakeGmailClient:
+        def get_message(self, message_id):
+            return FakeMessage()
+
+    app.dependency_overrides[deps.get_gmail_client] = lambda: FakeGmailClient()
+    resp = client.get(f"/api/transactions/{tx_id}/raw-email")
+    assert resp.status_code == 200
+    assert "Transaction Date: 27/07/2026" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_transaction_raw_email_shows_error_on_gmail_failure(client, db_connection):
+    tx_id = await _insert_transaction(db_connection)
+
+    class FailingGmailClient:
+        def get_message(self, message_id):
+            raise RuntimeError("Gmail unreachable")
+
+    app.dependency_overrides[deps.get_gmail_client] = lambda: FailingGmailClient()
+    resp = client.get(f"/api/transactions/{tx_id}/raw-email")
+    assert resp.status_code == 200
+    assert "Could not load the original email" in resp.text
+
+
+@pytest.mark.asyncio
 async def test_reparse_transaction_not_found(client, db_connection, monkeypatch):
     async def fake_reparse_transaction(db, transaction_id, **kwargs):
         return {"status": "not_found"}
