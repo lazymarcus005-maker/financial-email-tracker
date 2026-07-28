@@ -74,7 +74,7 @@
 
     <div class="card">
         <h2 class="text-sm font-medium text-neutral-900 mb-3">Spend by Bank</h2>
-        {% if pie_segments %}
+        {% if pie_segments and pie_segments|sum(attribute='total') > 0 %}
         <div class="flex flex-col items-center gap-4">
             <svg viewBox="0 0 36 36" class="w-32 h-32 -rotate-90">
                 <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#e5e5e5" stroke-width="4"></circle>

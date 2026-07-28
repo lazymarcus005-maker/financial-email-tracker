@@ -211,6 +211,41 @@ async def test_update_transaction_ignore_flag(client, db_connection):
     assert resp.json()["parse_status"] == "ignored"
 
 
+@pytest.mark.asyncio
+async def test_update_transaction_ignore_flag_form_encoded(client, db_connection):
+    """htmx's hx-vals sends booleans as form-encoded strings, not JSON - the form branch
+    of update_transaction must also honor `ignore` (this was previously silently ignored,
+    making the Ignore/Unignore buttons on the transaction detail page no-ops)."""
+    tx_id = await _insert_transaction(db_connection)
+
+    resp = client.patch(f"/api/transactions/{tx_id}", data={"ignore": "true"})
+    assert resp.status_code == 200
+
+    cursor = await db_connection.execute("SELECT parse_status FROM transactions WHERE id = ?", (tx_id,))
+    row = await cursor.fetchone()
+    await cursor.close()
+    assert row["parse_status"] == "ignored"
+
+
+@pytest.mark.asyncio
+async def test_update_transaction_htmx_target_transaction_actions_returns_full_card(client, db_connection):
+    """When the Save Category button inside transaction_actions.html (hx-target=#transaction-actions)
+    submits, the response must be the full actions card, not the bare category badge fragment used
+    by the transactions-list inline editor - otherwise Save Category wipes out the Ignore/Reparse/
+    Delete buttons until the page is reloaded."""
+    tx_id = await _insert_transaction(db_connection)
+
+    resp = client.patch(
+        f"/api/transactions/{tx_id}",
+        data={"category": "New Category"},
+        headers={"HX-Request": "true", "HX-Target": "transaction-actions"},
+    )
+    assert resp.status_code == 200
+    assert "Reparse" in resp.text
+    assert "Delete" in resp.text
+    assert 'id="transaction-actions"' in resp.text
+
+
 def test_update_missing_transaction_returns_404(client):
     resp = client.patch("/api/transactions/999999", json={"category": "X"})
     assert resp.status_code == 404

@@ -31,7 +31,7 @@
         </div>
         <div>
             <label class="block text-xs text-neutral-500 mb-1">Occurred At</label>
-            <input type="datetime-local" name="occurred_at" required value="{{ (item.received_at or item.created_at or '')[:16] }}" class="input">
+            <input type="datetime-local" name="occurred_at" required value="{{ (item.received_at or item.created_at or '').replace(' ', 'T')[:16] }}" class="input">
         </div>
         <div>
             <label class="block text-xs text-neutral-500 mb-1">Amount</label>

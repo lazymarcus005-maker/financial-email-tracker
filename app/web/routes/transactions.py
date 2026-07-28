@@ -78,6 +78,9 @@ async def update_transaction(
     if "application/x-www-form-urlencoded" in ct:
         form = await request.form()
         category = form.get("category")
+        ignore_raw = form.get("ignore")
+        if ignore_raw is not None:
+            await queries.set_transaction_ignored(db, transaction_id, ignore_raw == "true")
     else:
         body = await request.json()
         category = body.get("category")
@@ -93,6 +96,8 @@ async def update_transaction(
     t = await queries.get_transaction(db, transaction_id)
     # HTMX: return HTML partial
     if request.headers.get("HX-Request") == "true":
+        if request.headers.get("HX-Target") == "transaction-actions":
+            return templates.TemplateResponse(request, "partials/transaction_actions.html", {"t": t})
         return templates.TemplateResponse(request, "partials/category_badge.html", {"t": t})
     return t
 
