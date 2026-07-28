@@ -3,101 +3,136 @@
 {% block title %}Dashboard - Financial Email Tracker{% endblock %}
 
 {% block content %}
+{% set category_palette = ['#2a78d6', '#008300', '#e87ba4', '#eda100', '#1baf7a', '#eb6834', '#4a3aa7', '#e34948'] %}
+{% set bank_abbr = {'KBank': 'KB', 'Krungsri': 'KS', 'LH Bank': 'LH', 'SCB': 'SCB', 'Unknown': '?'} %}
+
+<div class="motion-safe:animate-fadeIn">
+
+<!-- Header -->
 <div class="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
-    <h1 class="text-xl font-semibold text-foreground">Dashboard</h1>
+    <div>
+        <h1 class="text-xl sm:text-2xl font-semibold text-foreground">Dashboard</h1>
+        <p class="text-sm text-muted-foreground mt-0.5">{{ today | thai_date('full') }}</p>
+    </div>
     {% include "partials/ingestion_button.html" %}
 </div>
 
-<div class="grid grid-cols-2 gap-3 mb-6 sm:gap-4 lg:grid-cols-3">
-    <div class="card card-body">
-        <div class="text-sm text-muted-foreground">Income Today</div>
-        <div class="text-xl sm:text-2xl font-semibold text-green-600 mt-1 tabular-nums">฿{{ '{:,.2f}'.format(stats.income_today) }}</div>
-    </div>
-    <div class="card card-body">
-        <div class="text-sm text-muted-foreground">Expense Today</div>
-        <div class="text-xl sm:text-2xl font-semibold text-red-600 mt-1 tabular-nums">฿{{ '{:,.2f}'.format(stats.expense_today) }}</div>
-    </div>
-    <div class="card card-body">
-        <div class="text-sm text-muted-foreground">Total Transactions</div>
-        <div class="text-xl sm:text-2xl font-semibold text-foreground mt-1 tabular-nums">{{ stats.total_transactions }}</div>
-    </div>
-    <div class="card card-body">
-        <div class="text-sm text-muted-foreground">Uncategorized</div>
-        <div class="text-xl sm:text-2xl font-semibold text-amber-600 mt-1 tabular-nums">{{ stats.uncategorized }}</div>
-    </div>
-    <div class="card card-body">
-        <div class="text-sm text-muted-foreground">Unknown Parser</div>
-        <div class="text-xl sm:text-2xl font-semibold text-amber-600 mt-1 tabular-nums">{{ stats.unknown_parser }}</div>
-    </div>
-    <div class="card card-body">
-        <div class="text-sm text-muted-foreground">Last Sync</div>
-        <div class="text-xl sm:text-2xl font-semibold text-foreground mt-1">{{ stats.last_sync | thai_date if stats.last_sync else 'Never' }}</div>
-    </div>
-</div>
-
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
-    {% for item in expense_summaries %}
-    <div class="card card-body">
-        <div class="flex items-center justify-between gap-3">
-            <div class="text-sm text-muted-foreground">Expense {{ item.days }} Days</div>
-            <span class="badge badge-expense">{{ item.count }} tx</span>
+<!-- Level 1 KPIs: F-pattern top row, most critical info largest and first -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
+    <div class="card card-body card-interactive">
+        <div class="text-xs sm:text-sm text-muted-foreground font-medium">Income Today</div>
+        <div class="text-xl sm:text-3xl font-bold text-green-600 mt-1.5 tabular-nums">฿{{ '{:,.2f}'.format(stats.income_today) }}</div>
+        {% if income_delta %}
+        <div class="text-xs mt-2 inline-flex items-center gap-1 {% if income_delta.flat %}text-muted-foreground{% elif income_delta.up %}text-green-600{% else %}text-red-600{% endif %}">
+            <span aria-hidden="true">{% if income_delta.flat %}▬{% elif income_delta.up %}▲{% else %}▼{% endif %}</span>
+            <span>{{ '%.0f'|format(income_delta.pct) }}% vs yesterday</span>
         </div>
-        <div class="text-xl sm:text-2xl font-semibold text-red-600 mt-1 tabular-nums">฿{{ '{:,.2f}'.format(item.total) }}</div>
-        <div class="text-xs text-muted-foreground mt-2">{{ item.start_day[5:] }} - {{ item.end_day[5:] }}</div>
+        {% else %}
+        <div class="text-xs mt-2 text-muted-foreground/70">No data yesterday</div>
+        {% endif %}
     </div>
-    {% endfor %}
+
+    <div class="card card-body card-interactive">
+        <div class="text-xs sm:text-sm text-muted-foreground font-medium">Expense Today</div>
+        <div class="text-xl sm:text-3xl font-bold text-red-600 mt-1.5 tabular-nums">฿{{ '{:,.2f}'.format(stats.expense_today) }}</div>
+        {% if expense_delta %}
+        <div class="text-xs mt-2 inline-flex items-center gap-1 {% if expense_delta.flat %}text-muted-foreground{% elif expense_delta.up %}text-red-600{% else %}text-green-600{% endif %}">
+            <span aria-hidden="true">{% if expense_delta.flat %}▬{% elif expense_delta.up %}▲{% else %}▼{% endif %}</span>
+            <span>{{ '%.0f'|format(expense_delta.pct) }}% vs yesterday</span>
+        </div>
+        {% else %}
+        <div class="text-xs mt-2 text-muted-foreground/70">No data yesterday</div>
+        {% endif %}
+    </div>
+
+    <div class="card card-body card-interactive">
+        <div class="text-xs sm:text-sm text-muted-foreground font-medium">Net Today</div>
+        <div class="text-xl sm:text-3xl font-bold mt-1.5 tabular-nums {% if net_today >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+            {{ '+' if net_today >= 0 else '-' }}฿{{ '{:,.2f}'.format(net_today|abs) }}
+        </div>
+        <div class="text-xs mt-2 inline-flex items-center gap-1 {% if net_delta_amount > 0 %}text-green-600{% elif net_delta_amount < 0 %}text-red-600{% else %}text-muted-foreground{% endif %}">
+            <span aria-hidden="true">{% if net_delta_amount > 0 %}▲{% elif net_delta_amount < 0 %}▼{% else %}▬{% endif %}</span>
+            <span>{{ '+' if net_delta_amount >= 0 else '-' }}฿{{ '{:,.0f}'.format(net_delta_amount|abs) }} vs yd</span>
+        </div>
+    </div>
+
+    <div class="card card-body card-interactive {% if stats.uncategorized > 0 %}ring-1 ring-amber-300{% endif %}">
+        <div class="text-xs sm:text-sm text-muted-foreground font-medium">Uncategorized</div>
+        <div class="text-xl sm:text-3xl font-bold mt-1.5 tabular-nums {% if stats.uncategorized > 0 %}text-amber-600{% else %}text-foreground{% endif %}">{{ stats.uncategorized }}</div>
+        <div class="text-xs mt-2 {% if stats.uncategorized > 0 %}text-amber-700{% else %}text-muted-foreground{% endif %}">
+            {% if stats.uncategorized > 0 %}⚠ Needs review{% else %}✓ All categorized{% endif %}
+        </div>
+    </div>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-4 gap-3 sm:gap-4">
-    <div class="card card-body lg:col-span-2">
+<!-- Primary visualization row: trend (50%), spend by bank (25%), recent activity (25%) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+    <div class="card card-body sm:col-span-2 lg:col-span-2">
         <div class="flex items-center justify-between gap-3 mb-1">
-            <h2 class="text-sm font-medium text-foreground">Expense</h2>
+            <h2 class="text-sm font-medium text-foreground">Expense Trend</h2>
             <div class="flex rounded-md border border-input overflow-hidden text-sm">
                 {% for option in [7, 14, 30] %}
                 <a
                     href="/?days={{ option }}"
-                    class="px-3 py-1.5 transition-colors {% if expense_window_days == option %}bg-primary text-primary-foreground{% else %}text-muted-foreground hover:bg-accent{% endif %}"
+                    class="min-h-11 min-w-11 flex items-center justify-center px-3 transition-colors {% if expense_window_days == option %}bg-primary text-primary-foreground{% else %}text-muted-foreground hover:bg-accent{% endif %}"
                 >{{ option }}</a>
                 {% endfor %}
             </div>
         </div>
         <div class="text-xs text-muted-foreground mb-4">Total: ฿{{ '{:,.2f}'.format(total_expense) }} over last {{ expense_window_days }} days</div>
 
-        <div class="h-56 sm:h-64 flex items-end gap-1.5 sm:gap-2 border-b border-border">
+        {% if expense_days and total_expense > 0 %}
+        <div class="h-56 sm:h-72 flex items-end gap-1.5 sm:gap-2 border-b border-border">
             {% for item in expense_days %}
             {% set pct = (item.total / max_expense * 100) if max_expense else 0 %}
+            {% set is_today = item.day == today %}
             <div class="flex-1 min-w-0 h-full flex flex-col justify-end items-center gap-2">
-                <div class="text-[10px] sm:text-[11px] text-muted-foreground whitespace-nowrap tabular-nums">฿{{ '{:,.0f}'.format(item.total) }}</div>
+                <div class="text-[10px] sm:text-[11px] whitespace-nowrap tabular-nums {% if is_today %}text-foreground font-semibold{% else %}text-muted-foreground{% endif %}">฿{{ '{:,.0f}'.format(item.total) }}</div>
                 <div
-                    class="w-full max-w-10 rounded-t-md bg-red-500 hover:bg-red-600 transition-colors motion-safe:animate-growUp"
+                    class="w-full max-w-10 rounded-t-md bg-gradient-to-t hover:brightness-110 transition-all motion-safe:animate-growUp {% if is_today %}from-red-500 to-red-400 ring-2 ring-offset-1 ring-primary{% else %}from-red-600 to-red-400{% endif %}"
                     style="height: {{ pct if pct > 3 else (3 if item.total > 0 else 0) }}%;"
-                    title="{{ item.day }}: ฿{{ '{:,.2f}'.format(item.total) }}"
+                    title="{{ item.day | thai_date }}: ฿{{ '{:,.2f}'.format(item.total) }}"
                 ></div>
             </div>
             {% endfor %}
         </div>
         <div class="mt-2 flex gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] text-muted-foreground">
             {% for item in expense_days %}
-            <div class="flex-1 min-w-0 text-center truncate">{{ item.day[5:] }}</div>
+            <div class="flex-1 min-w-0 text-center truncate {% if item.day == today %}text-foreground font-semibold{% endif %}">{{ item.day[5:] }}</div>
             {% endfor %}
         </div>
+        {% else %}
+        <div class="empty-state-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 3v18h18"/><path d="M7 15l4-6 4 3 5-8"/>
+            </svg>
+            <p class="text-sm text-muted-foreground">No expenses in this period yet.</p>
+        </div>
+        {% endif %}
     </div>
 
     <div class="card card-body">
         <h2 class="text-sm font-medium text-foreground mb-3">Spend by Bank</h2>
         {% if pie_segments and pie_segments|sum(attribute='total') > 0 %}
         <div class="flex flex-col items-center gap-4">
-            <svg viewBox="0 0 36 36" class="w-32 h-32 -rotate-90">
-                <circle cx="18" cy="18" r="15.9155" fill="none" stroke="hsl(var(--border))" stroke-width="4"></circle>
-                {% for seg in pie_segments %}
-                <circle
-                    cx="18" cy="18" r="15.9155" fill="none" stroke="{{ seg.color }}" stroke-width="4"
-                    stroke-dasharray="{{ seg.dasharray }}" stroke-dashoffset="{{ seg.dashoffset }}"
-                >
-                    <title>{{ seg.bank }}: ฿{{ '{:,.2f}'.format(seg.total) }} ({{ '%.1f'|format(seg.pct) }}%)</title>
-                </circle>
-                {% endfor %}
-            </svg>
+            <div class="relative flex items-center justify-center">
+                <svg viewBox="0 0 36 36" class="w-32 h-32 -rotate-90">
+                    <circle cx="18" cy="18" r="15.9155" fill="none" stroke="hsl(var(--border))" stroke-width="4"></circle>
+                    {% for seg in pie_segments %}
+                    <circle
+                        cx="18" cy="18" r="15.9155" fill="none" stroke="{{ seg.color }}" stroke-width="4"
+                        stroke-dasharray="{{ seg.dasharray }}" stroke-dashoffset="{{ seg.dashoffset }}"
+                        stroke-linecap="round"
+                    >
+                        <title>{{ seg.bank }}: ฿{{ '{:,.2f}'.format(seg.total) }} ({{ '%.1f'|format(seg.pct) }}%)</title>
+                    </circle>
+                    {% endfor %}
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span class="text-[10px] text-muted-foreground">Total</span>
+                    <span class="text-sm font-semibold tabular-nums text-foreground">฿{{ '{:,.0f}'.format(total_expense) }}</span>
+                </div>
+            </div>
             <ul class="w-full space-y-1.5 text-xs">
                 {% for seg in pie_segments %}
                 <li class="flex items-center justify-between gap-2">
@@ -111,43 +146,166 @@
             </ul>
         </div>
         {% else %}
-        <p class="text-sm text-muted-foreground">No expense data yet.</p>
+        <div class="empty-state-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+            </svg>
+            <p class="text-sm text-muted-foreground">No expense data yet.</p>
+        </div>
         {% endif %}
     </div>
 
     <div class="card card-body">
-        <h2 class="text-sm font-medium text-foreground mb-3">Recent Runs</h2>
-        {% if runs %}
-        <div class="space-y-3">
-            {% for run in runs %}
-            <div class="text-sm border-b border-border pb-2 last:border-0 last:pb-0">
-                <div class="flex items-center justify-between gap-2">
-                    <span class="text-muted-foreground truncate">{{ run.run_at | thai_date if run.run_at else '' }}</span>
-                    {% if run.failed and run.failed > 0 %}
-                    <button
-                        class="btn btn-destructive-outline btn-sm shrink-0"
-                        hx-post="/api/ingestion/retry/{{ run.id }}"
-                        hx-swap="none"
-                        hx-trigger="click"
-                        title="Retry failed items"
-                    >Retry</button>
-                    {% endif %}
-                </div>
-                {% if run.failed and run.failed > 0 %}
-                <div class="text-amber-700 text-xs mt-1">⚠️ Completed with {{ run.failed }} failure{{ 's' if run.failed != 1 else '' }} — {{ run.emails_checked or 0 }} scanned, {{ run.inserted or 0 }} saved</div>
-                <div class="text-muted-foreground/70 text-xs">No automatic retry — click Retry to reprocess</div>
-                {% else %}
-                <div class="text-green-700 text-xs mt-1">✅ {{ run.emails_checked or 0 }} scanned, {{ run.inserted or 0 }} saved{% if run.duplicates %}, {{ run.duplicates }} duplicate{{ 's' if run.duplicates != 1 else '' }}{% endif %}</div>
-                {% endif %}
-            </div>
-            {% endfor %}
+        <div class="flex items-center justify-between gap-2 mb-3">
+            <h2 class="text-sm font-medium text-foreground">Recent Activity</h2>
+            <a href="/transactions" class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 shrink-0">View All</a>
         </div>
+        {% if recent_transactions %}
+        <ul class="divide-y divide-border">
+            {% for t in recent_transactions %}
+            <li>
+                <a href="/transactions/{{ t.id }}" class="flex items-center gap-3 py-2 -mx-1 px-1 rounded-md transition-colors hover:bg-accent">
+                    <span
+                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+                        style="background-color: {{ bank_colors.get(t.bank, bank_colors['Unknown']) }}"
+                    >{{ bank_abbr.get(t.bank, (t.bank or '?')[:2]|upper) }}</span>
+                    <span class="min-w-0 flex-1">
+                        <span class="flex items-center justify-between gap-2">
+                            <span lang="th" class="font-thai text-sm text-foreground truncate">{{ t.counterparty or 'Unknown' }}</span>
+                            <span class="tabular-nums text-sm font-medium shrink-0 {% if t.direction == 'in' %}text-green-600{% else %}text-red-600{% endif %}">{{ '+' if t.direction == 'in' else '-' }}฿{{ '{:,.0f}'.format(t.amount) }}</span>
+                        </span>
+                        <span class="flex items-center justify-between gap-2 mt-0.5 text-xs text-muted-foreground">
+                            <span class="truncate">{{ t.category or 'Uncategorized' }}</span>
+                            <span class="shrink-0">{{ t.occurred_time }}</span>
+                        </span>
+                    </span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
         {% else %}
-        <p class="text-sm text-muted-foreground">No runs yet.</p>
-        {% endif %}
-        {% if next_sync %}
-        <div class="text-xs text-muted-foreground/70 mt-3 pt-3 border-t border-border">Next scheduled sync: {{ next_sync.strftime('%H:%M') }}</div>
+        <div class="empty-state-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <p class="text-sm text-muted-foreground">No transactions yet.</p>
+        </div>
         {% endif %}
     </div>
+</div>
+
+<!-- Expense by Category + Top Counterparties -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-6">
+    <div class="card card-body">
+        <h2 class="text-sm font-medium text-foreground mb-4">Expense by Category</h2>
+        {% if expense_by_category %}
+        <ul class="space-y-3">
+            {% for item in expense_by_category %}
+            <li>
+                <div class="flex items-center justify-between gap-2 mb-1">
+                    <span class="text-sm text-foreground truncate">{{ item.category }}</span>
+                    <span class="text-sm font-medium tabular-nums text-foreground shrink-0">฿{{ '{:,.0f}'.format(item.total) }}</span>
+                </div>
+                <div class="hbar-track">
+                    <div
+                        class="hbar-fill"
+                        style="width: {{ (item.total / max_category_expense * 100) if max_category_expense else 0 }}%; background-color: {{ category_palette[loop.index0 % (category_palette|length)] }};"
+                    ></div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty-state-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="12" width="4" height="8"/><rect x="10" y="7" width="4" height="13"/><rect x="17" y="3" width="4" height="17"/>
+            </svg>
+            <p class="text-sm text-muted-foreground">No categorized expenses in this period.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="card card-body">
+        <h2 class="text-sm font-medium text-foreground mb-4">Top Counterparties</h2>
+        {% if top_counterparties %}
+        <ul class="divide-y divide-border">
+            {% for item in top_counterparties %}
+            <li class="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+                <div class="min-w-0">
+                    <div lang="th" class="font-thai text-sm text-foreground truncate">{{ item.counterparty }}</div>
+                    <div class="text-xs text-muted-foreground">{{ item.count }} transaction{{ 's' if item.count != 1 else '' }}</div>
+                </div>
+                <div class="text-sm font-medium tabular-nums text-red-600 shrink-0">฿{{ '{:,.0f}'.format(item.total) }}</div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="empty-state-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="8" r="2.5"/><path d="M15 14c2.8.3 5 2.7 5 6"/>
+            </svg>
+            <p class="text-sm text-muted-foreground">No counterparty spend in this period.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Rolling expense summary windows -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
+    {% for item in expense_summaries %}
+    <div class="card card-body card-interactive">
+        <div class="flex items-center justify-between gap-3">
+            <div class="text-sm text-muted-foreground">Expense {{ item.days }} Days</div>
+            <span class="badge badge-expense">{{ item.count }} tx</span>
+        </div>
+        <div class="text-xl sm:text-2xl font-semibold text-red-600 mt-1 tabular-nums">฿{{ '{:,.2f}'.format(item.total) }}</div>
+        <div class="text-xs text-muted-foreground mt-2">{{ item.start_day[5:] }} - {{ item.end_day[5:] }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Sync status + run history -->
+<div class="card card-body">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+        <h2 class="text-sm font-medium text-foreground">Sync Status</h2>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span>Last sync: <span class="text-foreground font-medium">{{ stats.last_sync | thai_date if stats.last_sync else 'Never' }}</span></span>
+            {% if next_sync %}<span>Next sync: <span class="text-foreground font-medium">{{ next_sync.strftime('%H:%M') }}</span></span>{% endif %}
+        </div>
+    </div>
+    {% if runs %}
+    <ul class="divide-y divide-border">
+        {% for run in runs[:3] %}
+        <li class="flex items-center justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0">
+            <div class="min-w-0">
+                <div class="text-muted-foreground truncate">{{ run.run_at | thai_date if run.run_at else '' }}</div>
+                {% if run.failed and run.failed > 0 %}
+                <div class="text-amber-700 text-xs mt-0.5">⚠️ {{ run.failed }} failure{{ 's' if run.failed != 1 else '' }} — {{ run.emails_checked or 0 }} scanned, {{ run.inserted or 0 }} saved</div>
+                {% else %}
+                <div class="text-green-700 text-xs mt-0.5">✅ {{ run.emails_checked or 0 }} scanned, {{ run.inserted or 0 }} saved{% if run.duplicates %}, {{ run.duplicates }} duplicate{{ 's' if run.duplicates != 1 else '' }}{% endif %}</div>
+                {% endif %}
+            </div>
+            {% if run.failed and run.failed > 0 %}
+            <div class="relative shrink-0">
+                <button
+                    class="btn btn-destructive-outline btn-sm"
+                    hx-post="/api/ingestion/retry/{{ run.id }}"
+                    hx-swap="none"
+                    hx-trigger="click"
+                    hx-disabled-elt="this"
+                    hx-indicator="#retry-skeleton-{{ run.id }}"
+                    title="Retry failed items"
+                >Retry</button>
+                <div id="retry-skeleton-{{ run.id }}" class="htmx-indicator skeleton absolute inset-0"></div>
+            </div>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-muted-foreground">No sync runs yet.</p>
+    {% endif %}
+</div>
+
 </div>
 {% endblock %}

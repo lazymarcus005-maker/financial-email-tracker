@@ -800,6 +800,7 @@ async def list_transaction_types(db: aiosqlite.Connection, owner_user_id: int | 
 
 async def get_dashboard_stats(db: aiosqlite.Connection, owner_user_id: int | None = None) -> dict:
     today = date.today().isoformat()
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
     owner_sql = "AND owner_user_id = ?" if owner_user_id is not None else ""
     owner_params = [owner_user_id] if owner_user_id is not None else []
 
@@ -808,13 +809,15 @@ async def get_dashboard_stats(db: aiosqlite.Connection, owner_user_id: int | Non
         SELECT
             COALESCE(SUM(CASE WHEN direction = 'in' AND date(occurred_at) = ? THEN amount ELSE 0 END), 0) AS income_today,
             COALESCE(SUM(CASE WHEN direction = 'out' AND date(occurred_at) = ? THEN amount ELSE 0 END), 0) AS expense_today,
+            COALESCE(SUM(CASE WHEN direction = 'in' AND date(occurred_at) = ? THEN amount ELSE 0 END), 0) AS income_yesterday,
+            COALESCE(SUM(CASE WHEN direction = 'out' AND date(occurred_at) = ? THEN amount ELSE 0 END), 0) AS expense_yesterday,
             COUNT(*) AS total_transactions,
             SUM(CASE WHEN category IS NULL OR category = 'Uncategorized' THEN 1 ELSE 0 END) AS uncategorized
         FROM transactions
         WHERE parse_status != 'ignored'
         {owner_sql}
         """,
-        [today, today, *owner_params],
+        [today, today, yesterday, yesterday, *owner_params],
     )
     row = await cursor.fetchone()
     await cursor.close()
@@ -831,6 +834,8 @@ async def get_dashboard_stats(db: aiosqlite.Connection, owner_user_id: int | Non
     return {
         "income_today": row["income_today"],
         "expense_today": row["expense_today"],
+        "income_yesterday": row["income_yesterday"],
+        "expense_yesterday": row["expense_yesterday"],
         "total_transactions": row["total_transactions"],
         "uncategorized": row["uncategorized"] or 0,
         "unknown_parser": unknown_row["n"],
@@ -984,6 +989,71 @@ def build_pie_segments(rows: list[dict]) -> list[dict]:
         })
         offset += pct
     return segments
+
+
+async def get_expense_by_category(
+    db: aiosqlite.Connection, days: int = 30, owner_user_id: int | None = None, limit: int = 8
+) -> list[dict]:
+    """Return top expense categories by total 'out' spend over the last `days`."""
+    days = days if days in (7, 14, 30) else 30
+    end_day = date.today()
+    start_day = end_day - timedelta(days=days - 1)
+    owner_sql = "AND owner_user_id = ?" if owner_user_id is not None else ""
+    owner_params = [owner_user_id] if owner_user_id is not None else []
+
+    cursor = await db.execute(
+        f"""
+        SELECT
+            COALESCE(NULLIF(category, ''), 'Uncategorized') AS category,
+            COALESCE(SUM(amount), 0) AS total,
+            COUNT(*) AS count
+        FROM transactions
+        WHERE direction = 'out'
+          AND parse_status != 'ignored'
+          AND date(occurred_at) BETWEEN ? AND ?
+          {owner_sql}
+        GROUP BY COALESCE(NULLIF(category, ''), 'Uncategorized')
+        ORDER BY total DESC
+        LIMIT ?
+        """,
+        [start_day.isoformat(), end_day.isoformat(), *owner_params, limit],
+    )
+    rows = await cursor.fetchall()
+    await cursor.close()
+    return [{"category": r["category"], "total": float(r["total"] or 0), "count": r["count"]} for r in rows]
+
+
+async def get_top_counterparties(
+    db: aiosqlite.Connection, days: int = 30, owner_user_id: int | None = None, limit: int = 5
+) -> list[dict]:
+    """Return top counterparties by total 'out' spend over the last `days`."""
+    days = days if days in (7, 14, 30) else 30
+    end_day = date.today()
+    start_day = end_day - timedelta(days=days - 1)
+    owner_sql = "AND owner_user_id = ?" if owner_user_id is not None else ""
+    owner_params = [owner_user_id] if owner_user_id is not None else []
+
+    cursor = await db.execute(
+        f"""
+        SELECT
+            counterparty,
+            COALESCE(SUM(amount), 0) AS total,
+            COUNT(*) AS count
+        FROM transactions
+        WHERE direction = 'out'
+          AND parse_status != 'ignored'
+          AND counterparty IS NOT NULL AND counterparty != ''
+          AND date(occurred_at) BETWEEN ? AND ?
+          {owner_sql}
+        GROUP BY counterparty
+        ORDER BY total DESC
+        LIMIT ?
+        """,
+        [start_day.isoformat(), end_day.isoformat(), *owner_params, limit],
+    )
+    rows = await cursor.fetchall()
+    await cursor.close()
+    return [{"counterparty": r["counterparty"], "total": float(r["total"] or 0), "count": r["count"]} for r in rows]
 
 
 async def get_daily_summary_data(

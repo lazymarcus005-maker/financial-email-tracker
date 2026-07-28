@@ -206,6 +206,26 @@
   .empty-state-icon {
     @apply mb-4 h-12 w-12 text-muted-foreground/50;
   }
+  .empty-state-sm {
+    @apply flex flex-col items-center justify-center py-8 text-center;
+  }
+  .empty-state-sm .empty-state-icon {
+    @apply mb-2 h-8 w-8 text-muted-foreground/40;
+  }
+
+  /* Dashboard: interactive cards, skeletons, horizontal mini-bars */
+  .card-interactive {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md;
+  }
+  .skeleton {
+    @apply animate-pulse rounded-md bg-muted;
+  }
+  .hbar-track {
+    @apply h-2 w-full overflow-hidden rounded-full bg-muted;
+  }
+  .hbar-fill {
+    @apply h-full rounded-full transition-all duration-500 ease-out;
+  }
 }
 
 @layer utilities {
