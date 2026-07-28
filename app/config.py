@@ -61,6 +61,13 @@ class Settings:
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
 
+    MCP_ENABLED: bool = False
+    MCP_OWNER_USER_ID: str | None = None
+    MCP_ALLOW_WRITE: bool = False
+    MCP_ALLOW_SEND: bool = False
+    MCP_EXPOSE_RAW_EMAIL: bool = False
+    MCP_API_TOKEN: str | None = None
+
 
 def _coerce(raw_value: str, field_type) -> object:
     if field_type is bool:

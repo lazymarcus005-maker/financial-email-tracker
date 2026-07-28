@@ -39,3 +39,11 @@ AUTH_SESSION_TTL_SECONDS: 604800
 # Logging
 LOG_LEVEL: "INFO"
 LOG_FORMAT: "json"  # or "text"
+
+# MCP (Model Context Protocol) - local stdio server for AI agents, disabled by default
+MCP_ENABLED: false
+MCP_OWNER_USER_ID: "{{ env.MCP_OWNER_USER_ID }}"
+MCP_ALLOW_WRITE: false
+MCP_ALLOW_SEND: false
+MCP_EXPOSE_RAW_EMAIL: false
+MCP_API_TOKEN: "{{ env.MCP_API_TOKEN }}"

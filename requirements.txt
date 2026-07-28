@@ -22,6 +22,9 @@ httpx==0.25.1
 apscheduler==3.10.4
 pyyaml==6.0.1
 
+# MCP (Model Context Protocol) - local stdio server for AI agents
+mcp>=1.26,<2
+
 # Utilities
 pydantic==2.13.4
 pydantic-settings==2.14.2
