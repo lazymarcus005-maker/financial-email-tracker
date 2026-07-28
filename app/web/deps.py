@@ -90,5 +90,14 @@ def get_gmail_client(request: Request) -> GmailClient:
     return GmailClient(credentials_path=settings.GMAIL_CREDENTIALS_PATH, token_path=token_path)
 
 
+def get_optional_gmail_client(request: Request) -> GmailClient | None:
+    try:
+        return get_gmail_client(request)
+    except HTTPException as e:
+        if e.status_code == 400:
+            return None
+        raise
+
+
 def get_parser_registry() -> ParserRegistry:
     return ParserRegistry()

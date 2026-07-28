@@ -675,10 +675,20 @@ async def test_transaction_raw_email_renders_fragment(client, db_connection, mon
         def get_message(self, message_id):
             return FakeMessage()
 
-    app.dependency_overrides[deps.get_gmail_client] = lambda: FakeGmailClient()
+    app.dependency_overrides[deps.get_optional_gmail_client] = lambda: FakeGmailClient()
     resp = client.get(f"/api/transactions/{tx_id}/raw-email")
     assert resp.status_code == 200
     assert "Transaction Date: 27/07/2026" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_transaction_raw_email_prompts_gmail_connection(client, db_connection):
+    tx_id = await _insert_transaction(db_connection)
+
+    resp = client.get(f"/api/transactions/{tx_id}/raw-email")
+
+    assert resp.status_code == 200
+    assert "Connect Gmail in Settings" in resp.text
 
 
 @pytest.mark.asyncio
@@ -689,7 +699,7 @@ async def test_transaction_raw_email_shows_error_on_gmail_failure(client, db_con
         def get_message(self, message_id):
             raise RuntimeError("Gmail unreachable")
 
-    app.dependency_overrides[deps.get_gmail_client] = lambda: FailingGmailClient()
+    app.dependency_overrides[deps.get_optional_gmail_client] = lambda: FailingGmailClient()
     resp = client.get(f"/api/transactions/{tx_id}/raw-email")
     assert resp.status_code == 200
     assert "Could not load the original email" in resp.text
@@ -800,6 +810,16 @@ async def test_unknown_page_loads(client, db_connection):
     await _insert_unknown(db_connection)
     resp = client.get("/unknown")
     assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_unknown_raw_email_prompts_gmail_connection(client, db_connection):
+    unknown_id = await _insert_unknown(db_connection)
+
+    resp = client.get(f"/api/unknown/{unknown_id}/raw-email")
+
+    assert resp.status_code == 200
+    assert "Connect Gmail in Settings" in resp.text
 
 
 @pytest.mark.asyncio

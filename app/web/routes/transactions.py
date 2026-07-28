@@ -17,6 +17,7 @@ from app.web.deps import (
     get_current_user_id,
     get_db,
     get_gmail_client,
+    get_optional_gmail_client,
     get_parser_registry,
     templates,
 )
@@ -170,20 +171,58 @@ async def get_transaction_raw_email(
     transaction_id: int,
     request: Request,
     db: aiosqlite.Connection = Depends(get_db),
-    gmail_client: GmailClient = Depends(get_gmail_client),
+    gmail_client: GmailClient | None = Depends(get_optional_gmail_client),
+    owner_user_id: int = Depends(get_current_user_id),
 ):
-    transaction = await queries.get_transaction(db, transaction_id)
+    transaction = await queries.get_transaction(db, transaction_id, owner_user_id=owner_user_id)
     if transaction is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    try:
-        message = gmail_client.get_message(transaction["gmail_message_id"])
-        email = {"sender": message.sender, "subject": message.subject, "received_at": message.received_at, "body_text": message.body_text}
-        error = None
-    except Exception as e:
-        logger.warning(f"Failed to fetch raw email for transaction {transaction_id}: {e}")
+    if gmail_client is None:
         email = None
-        error = "Could not load the original email. It may have been deleted, or Gmail access failed."
+        error = "Connect Gmail in Settings before viewing the original email."
+    else:
+        try:
+            message = gmail_client.get_message(transaction["gmail_message_id"])
+            email = {"sender": message.sender, "subject": message.subject, "received_at": message.received_at, "body_text": message.body_text}
+            error = None
+        except Exception as e:
+            logger.warning(f"Failed to fetch raw email for transaction {transaction_id}: {e}")
+            email = None
+            error = "Could not load the original email. It may have been deleted, or Gmail access failed."
     return templates.TemplateResponse(request, "partials/raw_email.html", {"email": email, "error": error})
+
+
+@page_router.get("/transactions/{transaction_id}/modal")
+async def transaction_detail_modal(
+    request: Request,
+    transaction_id: int,
+    db: aiosqlite.Connection = Depends(get_db),
+    owner_user_id: int = Depends(get_current_user_id),
+):
+    transaction = await queries.get_transaction(db, transaction_id, owner_user_id=owner_user_id)
+    if transaction is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    categories = await queries.list_categories(db, owner_user_id=owner_user_id)
+    return templates.TemplateResponse(request, "partials/transaction_detail_modal.html", {"t": transaction, "categories": categories})
+
+
+@page_router.get("/transactions/{transaction_id}/edit-category")
+async def edit_category_fragment(
+    request: Request,
+    transaction_id: int,
+    db: aiosqlite.Connection = Depends(get_db),
+    owner_user_id: int = Depends(get_current_user_id),
+):
+    """HTMX fragment: inline category editor with datalist."""
+    transaction = await queries.get_transaction(db, transaction_id, owner_user_id=owner_user_id)
+    if transaction is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    categories = await queries.list_categories(db, owner_user_id=owner_user_id)
+    return templates.TemplateResponse(
+        request,
+        "fragments/edit_category.html",
+        {"t": transaction, "categories": categories},
+    )
 
 
 @page_router.get("/transactions")
@@ -258,29 +297,3 @@ async def transaction_detail_page(
     return templates.TemplateResponse(request, "transaction_detail.html", {"t": transaction, "categories": categories})
 
 
-@page_router.get("/transactions/{transaction_id}/modal")
-async def transaction_detail_modal(request: Request, transaction_id: int, db: aiosqlite.Connection = Depends(get_db)):
-    transaction = await queries.get_transaction(db, transaction_id)
-    if transaction is None:
-        raise HTTPException(status_code=404, detail="Transaction not found")
-    categories = await queries.list_categories(db)
-    return templates.TemplateResponse(request, "partials/transaction_detail_modal.html", {"t": transaction, "categories": categories})
-
-
-@page_router.get("/transactions/{transaction_id}/edit-category")
-async def edit_category_fragment(
-    request: Request,
-    transaction_id: int,
-    db: aiosqlite.Connection = Depends(get_db),
-    owner_user_id: int = Depends(get_current_user_id),
-):
-    """HTMX fragment: inline category editor with datalist."""
-    transaction = await queries.get_transaction(db, transaction_id, owner_user_id=owner_user_id)
-    if transaction is None:
-        raise HTTPException(status_code=404, detail="Transaction not found")
-    categories = await queries.list_categories(db, owner_user_id=owner_user_id)
-    return templates.TemplateResponse(
-        request,
-        "fragments/edit_category.html",
-        {"t": transaction, "categories": categories},
-    )

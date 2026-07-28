@@ -16,6 +16,7 @@ from app.web.deps import (
     get_current_user_id,
     get_db,
     get_gmail_client,
+    get_optional_gmail_client,
     get_parser_registry,
     templates,
 )
@@ -143,20 +144,24 @@ async def get_unknown_raw_email(
     unknown_id: int,
     request: Request,
     db: aiosqlite.Connection = Depends(get_db),
-    gmail_client: GmailClient = Depends(get_gmail_client),
+    gmail_client: GmailClient | None = Depends(get_optional_gmail_client),
     owner_user_id: int = Depends(get_current_user_id),
 ):
     row = await queries.get_unknown(db, unknown_id, owner_user_id=owner_user_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Unknown pattern not found")
-    try:
-        message = gmail_client.get_message(row["gmail_message_id"])
-        email = {"sender": message.sender, "subject": message.subject, "received_at": message.received_at, "body_text": message.body_text}
-        error = None
-    except Exception as e:
-        logger.warning(f"Failed to fetch raw email for unknown pattern {unknown_id}: {e}")
+    if gmail_client is None:
         email = None
-        error = "Could not load the original email. It may have been deleted, or Gmail access failed."
+        error = "Connect Gmail in Settings before viewing the original email."
+    else:
+        try:
+            message = gmail_client.get_message(row["gmail_message_id"])
+            email = {"sender": message.sender, "subject": message.subject, "received_at": message.received_at, "body_text": message.body_text}
+            error = None
+        except Exception as e:
+            logger.warning(f"Failed to fetch raw email for unknown pattern {unknown_id}: {e}")
+            email = None
+            error = "Could not load the original email. It may have been deleted, or Gmail access failed."
     return templates.TemplateResponse(request, "partials/raw_email.html", {"email": email, "error": error})
 
 
