@@ -79,11 +79,20 @@ CREATE TABLE IF NOT EXISTS unknown_patterns (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Subjects the user does not want to fetch/import again
+CREATE TABLE IF NOT EXISTS ignored_subjects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subject TEXT UNIQUE NOT NULL,
+    reason TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_transactions_occurred_at ON transactions(occurred_at);
 CREATE INDEX IF NOT EXISTS idx_transactions_gmail_id ON transactions(gmail_message_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
 CREATE INDEX IF NOT EXISTS idx_ingestion_runs_run_at ON ingestion_runs(run_at);
+CREATE INDEX IF NOT EXISTS idx_ignored_subjects_subject ON ignored_subjects(subject);
 """
 
 

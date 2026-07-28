@@ -97,7 +97,12 @@
             </thead>
             <tbody>
                 {% for item in items %}
-                <tr class="border-b border-neutral-100 hover:bg-neutral-50 transition-colors duration-150 relative">
+                <tr
+                    class="border-b border-neutral-100 hover:bg-neutral-50 transition-colors duration-150 cursor-pointer"
+                    data-href="/transactions/{{ item.id }}"
+                    tabindex="0"
+                    aria-label="View transaction {{ item.id }}"
+                >
                     <td class="px-4 py-3 whitespace-nowrap">
                         <div class="text-neutral-900">{{ item.occurred_date or '-' }}</div>
                         <div class="text-xs text-neutral-500">{{ item.occurred_time or item.occurred_at }}</div>
@@ -121,7 +126,6 @@
                     </td>
                     <td class="px-4 py-3 relative">
                         {{ item.parse_status }}
-                        <a href="/transactions/{{ item.id }}" class="absolute inset-0" tabindex="0" aria-label="View transaction {{ item.id }}"></a>
                     </td>
                 </tr>
                 {% else %}

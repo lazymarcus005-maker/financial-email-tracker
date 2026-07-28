@@ -5,9 +5,7 @@
 {% block content %}
 <div class="flex items-center justify-between mb-6">
     <h1 class="text-xl font-semibold text-neutral-900">Dashboard</h1>
-    <div id="ingestion-run">
-        {% include "partials/ingestion_button.html" %}
-    </div>
+    {% include "partials/ingestion_button.html" %}
 </div>
 
 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -35,6 +33,19 @@
         <div class="text-sm text-neutral-500">Last Sync</div>
         <div class="text-2xl font-semibold text-neutral-900 mt-1">{{ stats.last_sync | thai_date if stats.last_sync else 'Never' }}</div>
     </div>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+    {% for item in expense_summaries %}
+    <div class="card">
+        <div class="flex items-center justify-between gap-3">
+            <div class="text-sm text-neutral-500">Expense {{ item.days }} Days</div>
+            <span class="badge badge-expense">{{ item.count }} tx</span>
+        </div>
+        <div class="text-2xl font-semibold text-red-600 mt-1 tabular-nums">฿{{ '{:,.2f}'.format(item.total) }}</div>
+        <div class="text-xs text-neutral-500 mt-2">{{ item.start_day[5:] }} - {{ item.end_day[5:] }}</div>
+    </div>
+    {% endfor %}
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">

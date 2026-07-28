@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi.templating import Jinja2Templates
 
 from app.classification.engine import CategoryEngine
-from app.config import Settings, get_settings
+from app.config import get_settings
 from app.gmail.client import GmailClient
 from app.parsers.registry import ParserRegistry
 from app.storage.database import get_connection
@@ -62,8 +62,8 @@ async def get_db():
         await db.close()
 
 
-def get_category_engine(settings: Settings | None = None) -> CategoryEngine:
-    settings = settings or get_settings()
+def get_category_engine() -> CategoryEngine:
+    settings = get_settings()
     return CategoryEngine(
         ai_enabled=settings.AI_ENABLED,
         ollama_base_url=settings.OLLAMA_BASE_URL,

@@ -49,4 +49,38 @@
         </div>
     </dl>
 </div>
+
+<div class="card mt-6">
+    <h2 class="text-sm font-medium text-neutral-900 mb-3">Data Management</h2>
+    <div class="flex flex-wrap items-center gap-3">
+        <button
+            class="px-4 py-2 rounded-lg border border-red-300 text-sm font-medium text-red-700 hover:bg-red-50"
+            hx-post="/api/settings/clear-data"
+            hx-target="#settings-data-status"
+            hx-swap="outerHTML"
+            hx-confirm="Clear all transactions, unknown emails, runs, mappings, and ignored subjects?"
+            hx-disabled-elt="this"
+        >Clear All Data</button>
+        <a
+            href="/api/settings/export"
+            class="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+        >Export</a>
+        <form
+            class="flex flex-wrap items-center gap-2"
+            hx-post="/api/settings/import"
+            hx-encoding="multipart/form-data"
+            hx-target="#settings-data-status"
+            hx-swap="outerHTML"
+            hx-confirm="Importing will replace current runtime data. Continue?"
+        >
+            <input type="file" name="file" accept="application/json,.json" class="input" required>
+            <button
+                type="submit"
+                class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700"
+                hx-disabled-elt="this"
+            >Import</button>
+        </form>
+    </div>
+    <div id="settings-data-status" class="text-sm text-neutral-500 mt-3">Export before clearing or importing if you need a restore point.</div>
+</div>
 {% endblock %}

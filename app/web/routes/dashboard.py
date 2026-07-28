@@ -21,6 +21,7 @@ async def dashboard(
 ):
     days = days if days in (7, 14, 30) else 7
     stats = await queries.get_dashboard_stats(db)
+    expense_summaries = await queries.get_expense_summary_windows(db)
     expense_days = await queries.get_expense_by_day(db, days=days)
     max_expense = max((item["total"] for item in expense_days), default=0)
     runs, _ = await queries.list_runs(db, page=1, page_size=5)
@@ -29,6 +30,7 @@ async def dashboard(
         "dashboard.html",
         {
             "stats": stats,
+            "expense_summaries": expense_summaries,
             "expense_days": expense_days,
             "expense_window_days": days,
             "max_expense": max_expense,

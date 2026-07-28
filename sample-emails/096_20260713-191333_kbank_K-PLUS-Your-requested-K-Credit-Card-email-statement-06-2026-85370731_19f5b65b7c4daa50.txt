@@ -1,0 +1,79 @@
+Gmail Message ID: 19f5b65b7c4daa50
+Gmail Thread ID: 19f5b65b7c4daa50
+Received At: 2026-07-13T19:13:33+07:00
+Sender: K PLUS <KPLUS@kasikornbank.com>
+Subject: K PLUS : Your requested K-Credit Card email statement 06/2026 [85370731]
+Bank Key: kbank
+Body Text Length: 1214
+Body HTML Length: 1917
+
+--- BODY TEXT ---
+เรียน ท่านสมาชิกบัตรเครดิตกสิกรไทย
+
+
+
+
+ตามที่ท่านได้แจ้งความประสงค์ขอใบแจ้งยอดบัญชีบัตรเครดิตผ่านบริการ K PLUS ธนาคารขอจัดส่งใบแจ้งยอด K-Credit Card สำหรับรอบบัญชีที่ท่านเลือก (05/06/2026) ในรูปแบบ PDF โดยท่านสามารถเปิดดูรายละเอียดได้ โดยคลิกไฟล์แนบ และ ใส่รหัส 8 หลัก
+
+
+
+รหัสของท่านคือ DDMMYYYY
+
+DD: วันที่วันเกิดของท่าน
+
+MM: เดือนเกิดของท่าน
+
+YYYY: ปี คศ. เกิดของท่าน 
+
+ตัวอย่างเช่น ถ้าท่านเกิดวันที่ 5 มกราคม 1970 รหัสของท่านคือ 05011970
+
+
+
+
+สอบถามข้อมูลเพิ่มเติม ได้ที่ K-Contact Center โทร. 02-8888888 หรือ อีเมล์ : info@kasikornbank.com
+
+
+
+
+ขอแสดงความนับถือ
+
+บมจ. ธนาคารกสิกรไทย
+
+
+
+
+
+
+
+Dear K-Credit Card Customer,
+
+
+
+
+Referring to your request for credit card statement via K PLUS, attached please
+find K-Credit Card statement for selected cycle
+(05/06/2026). To open the attached PDF file, an 8-digit password is required.
+
+
+
+The password format is DDMMYYYY :
+
+DD is your birth date
+
+MM is your birth month
+
+YYYY is your birth year in A.D.
+
+For example, if your birthdate is 5 January 1970, your password is 05011970.
+
+
+
+
+For more information, please contact K-Contact Center Tel. 02-8888888 or email at info@kasikornbank.com.
+
+
+
+
+Yours Sincerely,
+
+KASIKORNBANK PCL

@@ -1,0 +1,161 @@
+{
+  "count": 120,
+  "groups": [
+    {
+      "bank": "kbank",
+      "template": "K PLUS credit card email statement",
+      "status": {
+        "ignored": 6
+      },
+      "types": {
+        "notification": 6
+      },
+      "directions": {
+        "unknown": 6
+      }
+    },
+    {
+      "bank": "kbank",
+      "template": "Result of Bill Payment (Success)",
+      "status": {
+        "complete": 22
+      },
+      "types": {
+        "bill_payment": 22
+      },
+      "directions": {
+        "out": 22
+      }
+    },
+    {
+      "bank": "kbank",
+      "template": "Result of Funds Transfer (Success)",
+      "status": {
+        "complete": 10
+      },
+      "types": {
+        "bank_transfer": 10
+      },
+      "directions": {
+        "out": 10
+      }
+    },
+    {
+      "bank": "kbank",
+      "template": "Result of PromptPay Funds Transfer (Success)",
+      "status": {
+        "complete": 11
+      },
+      "types": {
+        "promptpay_transfer": 11
+      },
+      "directions": {
+        "out": 11
+      }
+    },
+    {
+      "bank": "krungsri",
+      "template": "Result of bill payment (Success)",
+      "status": {
+        "complete": 18
+      },
+      "types": {
+        "bill_payment": 18
+      },
+      "directions": {
+        "out": 18
+      }
+    },
+    {
+      "bank": "krungsri",
+      "template": "Result of fund transfer to PromptPay (Success)",
+      "status": {
+        "complete": 8
+      },
+      "types": {
+        "promptpay_transfer": 8
+      },
+      "directions": {
+        "out": 8
+      }
+    },
+    {
+      "bank": "krungsri",
+      "template": "Result of fund transfer to other person's account (Success)",
+      "status": {
+        "complete": 1
+      },
+      "types": {
+        "bank_transfer": 1
+      },
+      "directions": {
+        "out": 1
+      }
+    },
+    {
+      "bank": "krungsri",
+      "template": "transfer-ewallet-result-success",
+      "status": {
+        "complete": 6
+      },
+      "types": {
+        "topup": 6
+      },
+      "directions": {
+        "out": 6
+      }
+    },
+    {
+      "bank": "lhbank",
+      "template": "[แจ้งเตือน] – การเข้าใช้งานแอปพลิเคชัน / Login Notification.",
+      "status": {
+        "ignored": 18
+      },
+      "types": {
+        "notification": 18
+      },
+      "directions": {
+        "unknown": 18
+      }
+    },
+    {
+      "bank": "lhbank",
+      "template": "[แจ้งเตือน] – จ่ายบิลสำเร็จ / Successful Bill Payment",
+      "status": {
+        "complete": 8
+      },
+      "types": {
+        "bill_payment": 8
+      },
+      "directions": {
+        "out": 8
+      }
+    },
+    {
+      "bank": "lhbank",
+      "template": "[แจ้งเตือน] – โอนเงินสำเร็จ / Successful Transfer",
+      "status": {
+        "complete": 11
+      },
+      "types": {
+        "bank_transfer": 11
+      },
+      "directions": {
+        "out": 11
+      }
+    },
+    {
+      "bank": "scb",
+      "template": "แจ้งเตือนจากแอพ SCB Easy: บริการอัตโนมัติแจ้งเตือนการทำธุรกรรม",
+      "status": {
+        "complete": 1
+      },
+      "types": {
+        "bank_transfer": 1
+      },
+      "directions": {
+        "out": 1
+      }
+    }
+  ]
+}

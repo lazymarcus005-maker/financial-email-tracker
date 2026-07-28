@@ -24,13 +24,22 @@ class MappingUpdate(BaseModel):
     category: str
 
 
+async def _mapping_payload(request: Request) -> dict:
+    ct = request.headers.get("content-type", "")
+    if "application/x-www-form-urlencoded" in ct or "multipart/form-data" in ct:
+        form = await request.form()
+        return dict(form)
+    return await request.json()
+
+
 @router.get("/mappings")
 async def list_mappings(db: aiosqlite.Connection = Depends(get_db)):
     return {"items": await queries.list_mappings(db)}
 
 
 @router.post("/mappings", status_code=201)
-async def create_mapping(body: MappingCreate, request: Request, db: aiosqlite.Connection = Depends(get_db)):
+async def create_mapping(request: Request, db: aiosqlite.Connection = Depends(get_db)):
+    body = MappingCreate(**await _mapping_payload(request))
     item = await queries.create_mapping(db, body.counterparty, body.category, source="manual")
     # HTMX: return new row partial
     if request.headers.get("HX-Request") == "true":
@@ -39,10 +48,11 @@ async def create_mapping(body: MappingCreate, request: Request, db: aiosqlite.Co
 
 
 @router.patch("/mappings/{mapping_id}")
-async def update_mapping(mapping_id: int, body: MappingUpdate, request: Request, db: aiosqlite.Connection = Depends(get_db)):
+async def update_mapping(mapping_id: int, request: Request, db: aiosqlite.Connection = Depends(get_db)):
     existing = await queries.get_mapping(db, mapping_id)
     if existing is None:
         raise HTTPException(status_code=404, detail="Mapping not found")
+    body = MappingUpdate(**await _mapping_payload(request))
     await queries.update_mapping(db, mapping_id, body.category)
     item = await queries.get_mapping(db, mapping_id)
     # HTMX: return updated row partial
@@ -67,4 +77,14 @@ async def delete_mapping(mapping_id: int, request: Request, db: aiosqlite.Connec
 @page_router.get("/mappings")
 async def mappings_page(request: Request, db: aiosqlite.Connection = Depends(get_db)):
     items = await queries.list_mappings(db)
-    return templates.TemplateResponse(request, "mappings.html", {"items": items})
+    counterparty_options = await queries.list_counterparty_options(db)
+    category_options = await queries.list_category_options(db)
+    return templates.TemplateResponse(
+        request,
+        "mappings.html",
+        {
+            "items": items,
+            "counterparty_options": counterparty_options,
+            "category_options": category_options,
+        },
+    )

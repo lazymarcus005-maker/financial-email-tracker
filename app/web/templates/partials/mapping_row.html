@@ -1,7 +1,7 @@
 <tr id="mapping-row-{{ item.id }}" class="border-b border-neutral-100">
     <td class="px-4 py-3">{{ item.counterparty }}</td>
     <td class="px-4 py-3">
-        <input type="text" id="category-{{ item.id }}" value="{{ item.category }}" class="input">
+        <input type="text" id="category-{{ item.id }}" value="{{ item.category }}" class="input" list="categories">
     </td>
     <td class="px-4 py-3">{{ item.source or '-' }}</td>
     <td class="px-4 py-3 whitespace-nowrap">{{ item.created_at }}</td>

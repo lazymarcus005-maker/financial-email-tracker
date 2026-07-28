@@ -1,6 +1,8 @@
 """Tests for the FastAPI web routes - status codes, DB round trips, no leaked secrets."""
 
 import json
+import io
+from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -97,6 +99,54 @@ def test_dashboard_page_loads(client):
     assert "text/html" in resp.headers["content-type"]
 
 
+@pytest.mark.asyncio
+async def test_dashboard_shows_expense_summary_windows(client, db_connection):
+    today = date.today()
+    await _insert_transaction(
+        db_connection,
+        gmail_message_id="msg-expense-today",
+        occurred_at=f"{today.isoformat()}T10:00:00",
+        amount=100.0,
+    )
+    await _insert_transaction(
+        db_connection,
+        gmail_message_id="msg-expense-10",
+        occurred_at=f"{(today - timedelta(days=10)).isoformat()}T10:00:00",
+        amount=200.0,
+    )
+    await _insert_transaction(
+        db_connection,
+        gmail_message_id="msg-expense-20",
+        occurred_at=f"{(today - timedelta(days=20)).isoformat()}T10:00:00",
+        amount=300.0,
+    )
+    await _insert_transaction(
+        db_connection,
+        gmail_message_id="msg-ignored",
+        occurred_at=f"{today.isoformat()}T10:00:00",
+        amount=999.0,
+        parse_status="ignored",
+    )
+    await _insert_transaction(
+        db_connection,
+        gmail_message_id="msg-income",
+        occurred_at=f"{today.isoformat()}T10:00:00",
+        amount=999.0,
+        direction="in",
+    )
+
+    resp = client.get("/")
+
+    assert resp.status_code == 200
+    body = resp.text
+    assert "Expense 7 Days" in body
+    assert "Expense 14 Days" in body
+    assert "Expense 30 Days" in body
+    assert "฿100.00" in body
+    assert "฿300.00" in body
+    assert "฿600.00" in body
+
+
 def test_health_check(client):
     resp = client.get("/health")
     assert resp.status_code == 200
@@ -122,6 +172,42 @@ def test_settings_api_exposes_no_secrets(client):
 def test_settings_page_loads(client):
     resp = client.get("/settings")
     assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_settings_clear_export_import_data(client, db_connection):
+    await _insert_transaction(db_connection, gmail_message_id="msg-export")
+    await db_connection.execute(
+        "INSERT INTO ignored_subjects (subject, reason) VALUES (?, ?)",
+        ("Ignored Export Subject", "test"),
+    )
+    await db_connection.commit()
+
+    export_resp = client.get("/api/settings/export")
+    assert export_resp.status_code == 200
+    payload = export_resp.json()
+    assert len(payload["tables"]["transactions"]) == 1
+    assert len(payload["tables"]["ignored_subjects"]) == 1
+
+    clear_resp = client.post("/api/settings/clear-data")
+    assert clear_resp.status_code == 200
+
+    cursor = await db_connection.execute("SELECT COUNT(*) AS n FROM transactions")
+    assert (await cursor.fetchone())["n"] == 0
+    await cursor.close()
+
+    import_resp = client.post(
+        "/api/settings/import",
+        files={"file": ("export.json", io.BytesIO(json.dumps(payload).encode("utf-8")), "application/json")},
+    )
+    assert import_resp.status_code == 200
+
+    cursor = await db_connection.execute("SELECT COUNT(*) AS n FROM transactions")
+    assert (await cursor.fetchone())["n"] == 1
+    await cursor.close()
+    cursor = await db_connection.execute("SELECT COUNT(*) AS n FROM ignored_subjects")
+    assert (await cursor.fetchone())["n"] == 1
+    await cursor.close()
 
 
 # ---- Mappings CRUD ---------------------------------------------------------------
@@ -152,6 +238,25 @@ def test_mappings_crud_roundtrip(client):
 def test_mappings_page_loads(client):
     resp = client.get("/mappings")
     assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_mappings_page_offers_transaction_counterparty_and_category_options(
+    client, db_connection
+):
+    await _insert_transaction(
+        db_connection,
+        counterparty="Cafe Amazon",
+        category="Coffee",
+        gmail_message_id="msg-map-options",
+    )
+
+    resp = client.get("/mappings")
+
+    assert resp.status_code == 200
+    assert 'id="counterparties"' in resp.text
+    assert 'value="Cafe Amazon"' in resp.text
+    assert 'value="Coffee"' in resp.text
 
 
 # ---- Transactions ---------------------------------------------------------------
@@ -244,6 +349,17 @@ async def test_transactions_page_loads(client, db_connection):
     assert detail_resp.status_code == 200
 
 
+@pytest.mark.asyncio
+async def test_transaction_rows_link_to_detail(client, db_connection):
+    tx_id = await _insert_transaction(db_connection)
+
+    resp = client.get("/transactions")
+
+    assert resp.status_code == 200
+    assert f'data-href="/transactions/{tx_id}"' in resp.text
+    assert f'hx-get="/transactions/{tx_id}/edit-category"' in resp.text
+
+
 def test_transaction_detail_page_404_for_missing(client):
     resp = client.get("/transactions/999999")
     assert resp.status_code == 404
@@ -290,6 +406,45 @@ async def test_list_unknown_and_ignore(client, db_connection):
     assert ignore_resp.json()["status"] == "ignored"
 
     assert client.post("/api/unknown/999999/ignore").status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_unknown_ignore_subject_adds_future_ingestion_filter(client, db_connection):
+    unknown_id = await _insert_unknown(db_connection, subject="Bank Marketing Notice")
+
+    resp = client.post(f"/api/unknown/{unknown_id}/ignore-subject")
+
+    assert resp.status_code == 200
+    cursor = await db_connection.execute(
+        "SELECT subject FROM ignored_subjects WHERE subject = ?",
+        ("Bank Marketing Notice",),
+    )
+    ignored = await cursor.fetchone()
+    await cursor.close()
+    cursor = await db_connection.execute(
+        "SELECT status FROM unknown_patterns WHERE id = ?",
+        (unknown_id,),
+    )
+    unknown = await cursor.fetchone()
+    await cursor.close()
+
+    assert ignored["subject"] == "Bank Marketing Notice"
+    assert unknown["status"] == "ignored"
+
+
+@pytest.mark.asyncio
+async def test_unknown_page_shows_ignored_subjects(client, db_connection):
+    await db_connection.execute(
+        "INSERT INTO ignored_subjects (subject, reason) VALUES (?, ?)",
+        ("Ignored Subject", "test"),
+    )
+    await db_connection.commit()
+
+    resp = client.get("/unknown")
+
+    assert resp.status_code == 200
+    assert "Ignored Subjects" in resp.text
+    assert "Ignored Subject" in resp.text
 
 
 @pytest.mark.asyncio
@@ -351,6 +506,22 @@ def test_trigger_ingestion_run(client, monkeypatch):
     resp = client.post("/api/ingestion/run")
     assert resp.status_code == 200
     assert resp.json() == {"emails_checked": 3, "inserted": 2, "duplicates": 1, "failed": 0}
+
+
+def test_trigger_ingestion_run_accepts_window(client, monkeypatch):
+    captured = {}
+
+    async def fake_run_ingestion(query, engine=None):
+        captured["query"] = query
+        return {"emails_checked": 0, "inserted": 0, "duplicates": 0, "failed": 0}
+
+    monkeypatch.setattr(ingestion_routes, "run_ingestion", fake_run_ingestion)
+
+    resp = client.post("/api/ingestion/run", data={"window": "last_30_days"})
+
+    assert resp.status_code == 200
+    assert "newer_than:30d" in captured["query"]
+    assert "newer_than:2d" not in captured["query"]
 
 
 def test_trigger_ingestion_run_returns_409_when_already_running(client, monkeypatch):

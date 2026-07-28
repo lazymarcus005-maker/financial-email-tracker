@@ -14,8 +14,10 @@ from app.storage import database
 class FakeReader:
     def __init__(self, messages):
         self._messages = messages
+        self.last_query = None
 
     def read(self, query, max_results=100):
+        self.last_query = query
         return self._messages
 
 
@@ -48,6 +50,19 @@ def _make_transaction():
         parse_status="complete",
         parse_confidence=1.0,
         raw_fields={"Amount": "100.00 THB"},
+    )
+
+
+def _make_ignored_notification():
+    return Transaction(
+        transaction_type="notification",
+        direction="unknown",
+        status="ignored",
+        occurred_at="",
+        amount=0.0,
+        parse_status="ignored",
+        parse_confidence=1.0,
+        raw_fields={"ignored_reason": "non_transaction_notification"},
     )
 
 
@@ -104,6 +119,57 @@ async def test_logs_unparseable_email_as_unknown(temp_db):
     row = await cursor.fetchone()
     await db.close()
     assert row["gmail_message_id"] == "msg-3"
+
+
+@pytest.mark.asyncio
+async def test_ingestion_applies_ignored_subjects_to_gmail_query(temp_db):
+    message = _make_message("msg-ignored-subject")
+    reader = FakeReader([message])
+    registry = FakeRegistry({message.sender: _make_transaction()})
+
+    db = await database.get_connection()
+    await db.execute(
+        "INSERT INTO ignored_subjects (subject, reason) VALUES (?, ?)",
+        (message.subject, "test"),
+    )
+    await db.commit()
+    await db.close()
+
+    summary = await run_ingestion(
+        "from:(KPLUS@kasikornbank.com) newer_than:7d",
+        reader=reader,
+        registry=registry,
+    )
+
+    assert '-subject:"K PLUS: Transfer Successful"' in reader.last_query
+    assert summary == {"emails_checked": 1, "inserted": 0, "duplicates": 0, "failed": 0}
+
+    db = await database.get_connection()
+    cursor = await db.execute("SELECT COUNT(*) AS n FROM transactions")
+    transaction_count = (await cursor.fetchone())["n"]
+    await db.close()
+    assert transaction_count == 0
+
+
+@pytest.mark.asyncio
+async def test_skips_ignored_parse_without_unknown_pattern(temp_db):
+    message = _make_message("msg-ignored", sender="LHBYou@lhbank.co.th")
+    message.subject = "[แจ้งเตือน] - การเข้าใช้งานแอปพลิเคชัน / Login Notification."
+    reader = FakeReader([message])
+    registry = FakeRegistry({message.sender: _make_ignored_notification()})
+
+    summary = await run_ingestion("query", reader=reader, registry=registry)
+
+    assert summary == {"emails_checked": 1, "inserted": 0, "duplicates": 0, "failed": 0}
+
+    db = await database.get_connection()
+    cursor = await db.execute("SELECT COUNT(*) AS n FROM unknown_patterns")
+    unknown_count = (await cursor.fetchone())["n"]
+    cursor = await db.execute("SELECT COUNT(*) AS n FROM transactions")
+    transaction_count = (await cursor.fetchone())["n"]
+    await db.close()
+    assert unknown_count == 0
+    assert transaction_count == 0
 
 
 @pytest.mark.asyncio

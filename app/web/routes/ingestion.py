@@ -1,6 +1,7 @@
 """Ingestion routes - run history, trigger a run now, retry failed messages."""
 
 import logging
+import re
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -19,6 +20,64 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["ingestion"])
 
+_INGESTION_WINDOWS = {
+    "default": None,
+    "last_7_days": 7,
+    "last_30_days": 30,
+    "last_90_days": 90,
+}
+
+
+async def _get_ingestion_window(request: Request) -> str:
+    ct = request.headers.get("content-type", "")
+    if "application/x-www-form-urlencoded" in ct or "multipart/form-data" in ct:
+        form = await request.form()
+        window = str(form.get("window") or "default")
+    else:
+        window = request.query_params.get("window", "default")
+    return window if window in _INGESTION_WINDOWS else "default"
+
+
+def _query_for_window(base_query: str, window: str) -> str:
+    days = _INGESTION_WINDOWS[window]
+    if days is None:
+        return base_query
+    query = re.sub(r"\s*newer_than:\S+", "", base_query).strip()
+    return f"{query} newer_than:{days}d"
+
+
+def _ingestion_control_html(button_text: str, selected_window: str = "default") -> str:
+    options = {
+        "default": "Default",
+        "last_7_days": "Last 7 days",
+        "last_30_days": "Last 30 days",
+        "last_90_days": "Last 90 days",
+    }
+    option_html = "\n".join(
+        f'<option value="{value}" {"selected" if value == selected_window else ""}>{label}</option>'
+        for value, label in options.items()
+    )
+    return f"""<form id="ingestion-run" class="flex flex-wrap items-center gap-2">
+    <select name="window" class="input w-32">
+        {option_html}
+    </select>
+    <button
+        class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+        hx-post="/api/ingestion/run"
+        hx-swap="outerHTML"
+        hx-target="#ingestion-run"
+        hx-disabled-elt="this"
+    >
+        <span class="spinner hidden htmx-indicator">
+            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+        </span>
+        <span class="button-text">{button_text}</span>
+    </button>
+</form>"""
+
 
 @router.get("/runs")
 async def list_runs(
@@ -33,36 +92,22 @@ async def list_runs(
 @router.post("/ingestion/run")
 async def trigger_run(
     request: Request,
-    settings: Settings = Depends(get_settings),
     engine: CategoryEngine = Depends(get_category_engine),
 ):
+    settings = get_settings()
+    window = await _get_ingestion_window(request)
+    query = _query_for_window(settings.GMAIL_QUERY, window)
     try:
-        summary = await run_ingestion(settings.GMAIL_QUERY, engine=engine)
+        summary = await run_ingestion(query, engine=engine)
     except IngestionAlreadyRunningError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
 
     if request.headers.get("hx-request") == "true":
-        new_count = summary.get("new", 0)
-        scanned_count = summary.get("scanned", 0)
-        return HTMLResponse(
-            f"""<div id="ingestion-run">
-    <button
-        class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-        hx-post="/api/ingestion/run"
-        hx-swap="outerHTML"
-        hx-target="#ingestion-run"
-        hx-disabled-elt="this"
-    >
-        <span class="spinner hidden htmx-indicator">
-            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-        </span>
-        <span class="button-text">Done: {new_count} new, {scanned_count} scanned</span>
-    </button>
-</div>"""
+        button_text = (
+            f"Done: {summary.get('inserted', 0)} new, "
+            f"{summary.get('duplicates', 0)} dup, {summary.get('failed', 0)} failed"
         )
+        return HTMLResponse(_ingestion_control_html(button_text, selected_window=window))
 
     return summary
 

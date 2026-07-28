@@ -7,25 +7,27 @@
 
 <div class="card mb-6">
     <h2 class="text-sm font-medium text-neutral-900 mb-3">Add Mapping</h2>
-    <div class="flex flex-wrap items-end gap-3">
+    <form
+        class="flex flex-wrap items-end gap-3"
+        hx-post="/api/mappings"
+        hx-target="#mappings-tbody"
+        hx-swap="beforeend"
+        hx-disabled-elt="find button"
+        hx-on::after-request="document.getElementById('new-counterparty').value=''; document.getElementById('new-category').value=''"
+    >
         <div>
             <label class="block text-xs text-neutral-500 mb-1">Counterparty</label>
-            <input type="text" id="new-counterparty" class="input focus-visible:ring-2 focus-visible:ring-neutral-400">
+            <input type="text" id="new-counterparty" name="counterparty" class="input focus-visible:ring-2 focus-visible:ring-neutral-400" list="counterparties" required>
         </div>
         <div>
             <label class="block text-xs text-neutral-500 mb-1">Category</label>
-            <input type="text" id="new-category" class="input focus-visible:ring-2 focus-visible:ring-neutral-400" list="categories">
+            <input type="text" id="new-category" name="category" class="input focus-visible:ring-2 focus-visible:ring-neutral-400" list="categories" required>
         </div>
         <button
+            type="submit"
             class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2"
-            hx-post="/api/mappings"
-            hx-target="#mappings-tbody"
-            hx-swap="beforeend"
-            hx-vals='js:{counterparty: document.getElementById("new-counterparty").value, category: document.getElementById("new-category").value}'
-            hx-disabled-elt="this"
-            hx-on::after-request="document.getElementById('new-counterparty').value=''; document.getElementById('new-category').value=''"
         >Add Mapping</button>
-    </div>
+    </form>
 </div>
 
 <div class="card p-0 overflow-x-auto">
@@ -61,8 +63,14 @@
 </div>
 
 <datalist id="categories">
-    {% for item in items %}
-    <option value="{{ item.category }}">
+    {% for category in category_options %}
+    <option value="{{ category }}">
+    {% endfor %}
+</datalist>
+
+<datalist id="counterparties">
+    {% for option in counterparty_options %}
+    <option value="{{ option.counterparty }}" label="{{ option.category }} · {{ option.transaction_count }} tx">
     {% endfor %}
 </datalist>
 {% endblock %}

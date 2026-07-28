@@ -194,11 +194,61 @@ async def delete_unknown(db: aiosqlite.Connection, unknown_id: int) -> None:
 
 # ---- Counterparty mappings ---------------------------------------------------
 
+DATA_TABLES = (
+    "transactions",
+    "unknown_patterns",
+    "ingestion_runs",
+    "ingestion_state",
+    "counterparty_mapping",
+    "ignored_subjects",
+)
+
+
 async def list_mappings(db: aiosqlite.Connection) -> list[dict]:
     cursor = await db.execute("SELECT * FROM counterparty_mapping ORDER BY counterparty ASC")
     rows = await cursor.fetchall()
     await cursor.close()
     return [dict(r) for r in rows]
+
+
+async def list_counterparty_options(db: aiosqlite.Connection) -> list[dict]:
+    """Return counterparties seen in transactions, newest/count-rich first."""
+    cursor = await db.execute(
+        """
+        SELECT
+            counterparty,
+            COALESCE(category, 'Uncategorized') AS category,
+            COUNT(*) AS transaction_count,
+            MAX(occurred_at) AS last_seen
+        FROM transactions
+        WHERE counterparty IS NOT NULL
+          AND counterparty != ''
+          AND counterparty != 'Unknown Counterparty'
+          AND parse_status != 'ignored'
+        GROUP BY counterparty, COALESCE(category, 'Uncategorized')
+        ORDER BY transaction_count DESC, last_seen DESC, counterparty ASC
+        """
+    )
+    rows = await cursor.fetchall()
+    await cursor.close()
+    return [dict(r) for r in rows]
+
+
+async def list_category_options(db: aiosqlite.Connection) -> list[str]:
+    """Return categories from transactions and mappings, sorted for datalist use."""
+    cursor = await db.execute(
+        """
+        SELECT category FROM transactions
+        WHERE category IS NOT NULL AND category != ''
+        UNION
+        SELECT category FROM counterparty_mapping
+        WHERE category IS NOT NULL AND category != ''
+        ORDER BY category ASC
+        """
+    )
+    rows = await cursor.fetchall()
+    await cursor.close()
+    return [r["category"] for r in rows]
 
 
 async def get_mapping(db: aiosqlite.Connection, mapping_id: int) -> dict | None:
@@ -239,6 +289,139 @@ async def update_mapping(db: aiosqlite.Connection, mapping_id: int, category: st
 async def delete_mapping(db: aiosqlite.Connection, mapping_id: int) -> None:
     await db.execute("DELETE FROM counterparty_mapping WHERE id = ?", (mapping_id,))
     await db.commit()
+
+
+# ---- Ignored subjects ---------------------------------------------------------
+
+async def list_ignored_subjects(db: aiosqlite.Connection) -> list[dict]:
+    cursor = await db.execute("SELECT * FROM ignored_subjects ORDER BY created_at DESC, id DESC")
+    rows = await cursor.fetchall()
+    await cursor.close()
+    return [dict(r) for r in rows]
+
+
+async def create_ignored_subject(db: aiosqlite.Connection, subject: str, reason: str | None = None) -> dict:
+    subject = (subject or "").strip()
+    if not subject:
+        raise ValueError("subject is required")
+    await db.execute(
+        """
+        INSERT INTO ignored_subjects (subject, reason)
+        VALUES (?, ?)
+        ON CONFLICT(subject) DO UPDATE SET reason = COALESCE(excluded.reason, ignored_subjects.reason)
+        """,
+        (subject, reason),
+    )
+    await db.commit()
+    cursor = await db.execute("SELECT * FROM ignored_subjects WHERE subject = ?", (subject,))
+    row = await cursor.fetchone()
+    await cursor.close()
+    return dict(row)
+
+
+async def delete_ignored_subject(db: aiosqlite.Connection, ignored_subject_id: int) -> None:
+    await db.execute("DELETE FROM ignored_subjects WHERE id = ?", (ignored_subject_id,))
+    await db.commit()
+
+
+async def is_subject_ignored(db: aiosqlite.Connection, subject: str | None) -> bool:
+    if not subject:
+        return False
+    cursor = await db.execute("SELECT 1 FROM ignored_subjects WHERE subject = ?", (subject,))
+    row = await cursor.fetchone()
+    await cursor.close()
+    return row is not None
+
+
+async def mark_unknown_subject_ignored(db: aiosqlite.Connection, subject: str) -> int:
+    cursor = await db.execute(
+        "UPDATE unknown_patterns SET status = 'ignored' WHERE subject = ?",
+        (subject,),
+    )
+    await db.commit()
+    return cursor.rowcount
+
+
+def _escape_gmail_query_string(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+async def apply_ignored_subjects_to_gmail_query(db: aiosqlite.Connection, query: str) -> str:
+    ignored_subjects = await list_ignored_subjects(db)
+    exclusions = [
+        f'-subject:"{_escape_gmail_query_string(item["subject"])}"'
+        for item in ignored_subjects
+        if item.get("subject")
+    ]
+    return " ".join([query, *exclusions]).strip() if exclusions else query
+
+
+# ---- Data management ----------------------------------------------------------
+
+async def clear_runtime_data(db: aiosqlite.Connection) -> dict:
+    """Delete all user/runtime data while keeping schema and configuration files."""
+    counts: dict[str, int] = {}
+    await db.execute("PRAGMA foreign_keys = OFF")
+    for table in DATA_TABLES:
+        cursor = await db.execute(f"SELECT COUNT(*) AS n FROM {table}")
+        counts[table] = (await cursor.fetchone())["n"]
+        await cursor.close()
+        await db.execute(f"DELETE FROM {table}")
+    placeholders = ",".join("?" for _ in DATA_TABLES)
+    await db.execute(f"DELETE FROM sqlite_sequence WHERE name IN ({placeholders})", DATA_TABLES)
+    await db.commit()
+    return counts
+
+
+async def export_runtime_data(db: aiosqlite.Connection) -> dict:
+    """Export runtime tables to a JSON-serializable structure."""
+    data = {"version": 1, "tables": {}}
+    for table in DATA_TABLES:
+        cursor = await db.execute(f"SELECT * FROM {table}")
+        rows = await cursor.fetchall()
+        await cursor.close()
+        data["tables"][table] = [dict(row) for row in rows]
+    return data
+
+
+async def import_runtime_data(db: aiosqlite.Connection, payload: dict, replace: bool = True) -> dict:
+    """Import data created by `export_runtime_data`."""
+    tables = payload.get("tables") if isinstance(payload, dict) else None
+    if not isinstance(tables, dict):
+        raise ValueError("Invalid import payload: missing tables")
+
+    imported: dict[str, int] = {}
+    await db.execute("PRAGMA foreign_keys = OFF")
+    if replace:
+        for table in DATA_TABLES:
+            await db.execute(f"DELETE FROM {table}")
+
+    for table in DATA_TABLES:
+        rows = tables.get(table, [])
+        if not rows:
+            imported[table] = 0
+            continue
+        if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+            raise ValueError(f"Invalid rows for table: {table}")
+
+        cursor = await db.execute(f"PRAGMA table_info({table})")
+        columns = [row["name"] for row in await cursor.fetchall()]
+        await cursor.close()
+        insertable_columns = [column for column in columns if any(column in row for row in rows)]
+        placeholders = ", ".join("?" for _ in insertable_columns)
+        column_sql = ", ".join(insertable_columns)
+        values = [
+            tuple(row.get(column) for column in insertable_columns)
+            for row in rows
+        ]
+        await db.executemany(
+            f"INSERT OR REPLACE INTO {table} ({column_sql}) VALUES ({placeholders})",
+            values,
+        )
+        imported[table] = len(values)
+
+    await db.commit()
+    return imported
 
 
 # ---- Ingestion runs ----------------------------------------------------------
@@ -361,6 +544,43 @@ async def get_expense_by_day(db: aiosqlite.Connection, days: int = 7) -> list[di
         }
         for offset in range(days)
     ]
+
+
+async def get_expense_summary_windows(
+    db: aiosqlite.Connection, windows: tuple[int, ...] = (7, 14, 30)
+) -> list[dict]:
+    """Return expense totals for rolling day windows, inclusive of today."""
+    allowed_windows = tuple(window for window in windows if window in (7, 14, 30))
+    end_day = date.today()
+    summaries: list[dict] = []
+
+    for window in allowed_windows:
+        start_day = end_day - timedelta(days=window - 1)
+        cursor = await db.execute(
+            """
+            SELECT
+                COALESCE(SUM(amount), 0) AS total,
+                COUNT(*) AS count
+            FROM transactions
+            WHERE direction = 'out'
+              AND parse_status != 'ignored'
+              AND date(occurred_at) BETWEEN ? AND ?
+            """,
+            (start_day.isoformat(), end_day.isoformat()),
+        )
+        row = await cursor.fetchone()
+        await cursor.close()
+        summaries.append(
+            {
+                "days": window,
+                "start_day": start_day.isoformat(),
+                "end_day": end_day.isoformat(),
+                "total": float(row["total"] or 0),
+                "count": row["count"] or 0,
+            }
+        )
+
+    return summaries
 
 
 async def get_daily_summary_data(db: aiosqlite.Connection, day: str | None = None) -> dict:

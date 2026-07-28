@@ -8,6 +8,7 @@ from app.classification.engine import CategoryEngine
 from app.gmail.reader import GmailReader
 from app.ingestion import persistence
 from app.parsers.registry import ParserRegistry
+from app.storage import queries
 from app.storage.database import get_connection
 
 logger = logging.getLogger(__name__)
@@ -38,19 +39,30 @@ async def run_ingestion(
     engine = engine or CategoryEngine()
 
     try:
-        messages = reader.read(query)
-
         inserted = duplicates = failed = 0
         db = await get_connection()
 
         try:
+            effective_query = await queries.apply_ignored_subjects_to_gmail_query(db, query)
+            messages = reader.read(effective_query)
+
             for message in messages:
+                if await queries.is_subject_ignored(db, message.subject):
+                    logger.info(
+                        f"Skipping ignored subject for message {message.gmail_message_id} ({message.subject!r})"
+                    )
+                    continue
+
                 if await persistence.already_ingested(db, message.gmail_message_id):
                     logger.info(f"Skipping duplicate message {message.gmail_message_id}")
                     duplicates += 1
                     continue
 
                 transaction = registry.parse(message.body_text, message.sender, subject=message.subject)
+
+                if transaction is not None and transaction.parse_status == "ignored":
+                    logger.info(f"Skipping ignored message {message.gmail_message_id} ({message.subject!r})")
+                    continue
 
                 if transaction is None or transaction.parse_status == "failed":
                     await persistence.insert_unknown(db, message, transaction)

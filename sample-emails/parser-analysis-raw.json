@@ -1,0 +1,781 @@
+{
+  "count": 120,
+  "by_bank": {
+    "kbank": {
+      "count": 49,
+      "subjects": {
+        "Result of Bill Payment (Success)": 22,
+        "Result of Funds Transfer (Success)": 10,
+        "Result of PromptPay Funds Transfer (Success)": 11,
+        "K PLUS credit card email statement": 6
+      }
+    },
+    "krungsri": {
+      "count": 33,
+      "subjects": {
+        "Result of fund transfer to PromptPay (Success)": 8,
+        "Result of bill payment (Success)": 18,
+        "Result of fund transfer to other person's account (Success)": 1,
+        "transfer-ewallet-result-success": 6
+      }
+    },
+    "lhbank": {
+      "count": 37,
+      "subjects": {
+        "[แจ้งเตือน] – การเข้าใช้งานแอปพลิเคชัน / Login Notification.": 18,
+        "[แจ้งเตือน] – จ่ายบิลสำเร็จ / Successful Bill Payment": 8,
+        "[แจ้งเตือน] – โอนเงินสำเร็จ / Successful Transfer": 11
+      }
+    },
+    "scb": {
+      "count": 1,
+      "subjects": {
+        "แจ้งเตือนจากแอพ SCB Easy: บริการอัตโนมัติแจ้งเตือนการทำธุรกรรม": 1
+      }
+    }
+  },
+  "subject_groups": [
+    {
+      "bank": "kbank",
+      "template": "K PLUS credit card email statement",
+      "count": 6,
+      "example_file": "sample-emails/091_20260713-205645_kbank_K-PLUS-Your-requested-K-Credit-Card-email-statement-06-2026-49900845_19f5bc4416a13e4d.txt",
+      "parser_status_counts": {
+        "ignored": 6
+      },
+      "transaction_type_counts": {
+        "notification": 6
+      },
+      "direction_counts": {
+        "unknown": 6
+      },
+      "raw_field_key_counts": {
+        "ignored_reason": 6
+      }
+    },
+    {
+      "bank": "kbank",
+      "template": "Result of Bill Payment (Success)",
+      "count": 22,
+      "example_file": "sample-emails/002_20260727-162529_kbank_Result-of-Bill-Payment-Success_19fa2e4e1a78ff4f.txt",
+      "parser_status_counts": {
+        "complete": 22
+      },
+      "transaction_type_counts": {
+        "bill_payment": 22
+      },
+      "direction_counts": {
+        "out": 22
+      },
+      "raw_field_key_counts": {
+        "วันที่ทำรายการ": 15,
+        "เลขที่รายการ": 15,
+        "ชำระเงินจากบัญชี": 15,
+        "เพื่อเข้าบัญชีบริษัท": 15,
+        "รหัสร้านค้า": 14,
+        "จำนวนเงิน (บาท)": 15,
+        "ค่าธรรมเนียม (บาท)": 15,
+        "ยอดถอนได้ (บาท)": 15,
+        "- อีเมล": 15,
+        "- Facebook": 7,
+        "- LINE Official Account": 7,
+        "Subject": 7,
+        "Transaction Date": 7,
+        "Transaction Number": 7,
+        "Paid From Account": 7,
+        "Company Name": 7,
+        "REFERENCE 1": 4,
+        "Amount (THB)": 7,
+        "Fee (THB)": 7,
+        "Available Balance (THB)": 7,
+        "- Email": 7,
+        "เลขที่อ้างอิงที่ 1": 1,
+        "MERCHANTNO.1": 1,
+        "Card No.": 2
+      }
+    },
+    {
+      "bank": "kbank",
+      "template": "Result of Funds Transfer (Success)",
+      "count": 10,
+      "example_file": "sample-emails/005_20260727-125637_kbank_Result-of-Funds-Transfer-Success_19fa2258fe1b07c0.txt",
+      "parser_status_counts": {
+        "complete": 10
+      },
+      "transaction_type_counts": {
+        "bank_transfer": 10
+      },
+      "direction_counts": {
+        "out": 10
+      },
+      "raw_field_key_counts": {
+        "- Facebook": 10,
+        "- LINE Official Account": 10,
+        "Subject": 10,
+        "Transaction Date": 10,
+        "Transaction Number": 10,
+        "From Account": 10,
+        "To Bank": 10,
+        "To Account": 10,
+        "Account Name": 10,
+        "Amount (THB)": 10,
+        "Fee (THB)": 10,
+        "Available Balance (THB)": 10,
+        "- Email": 10
+      }
+    },
+    {
+      "bank": "kbank",
+      "template": "Result of PromptPay Funds Transfer (Success)",
+      "count": 11,
+      "example_file": "sample-emails/009_20260726-183309_kbank_Result-of-PromptPay-Funds-Transfer-Success_19f9e336943dffe3.txt",
+      "parser_status_counts": {
+        "complete": 11
+      },
+      "transaction_type_counts": {
+        "promptpay_transfer": 11
+      },
+      "direction_counts": {
+        "out": 11
+      },
+      "raw_field_key_counts": {
+        "- Facebook": 11,
+        "- LINE Official Account": 11,
+        "Subject": 11,
+        "Transaction Date": 11,
+        "Transaction Number": 11,
+        "From Account": 11,
+        "To PromptPay ID": 11,
+        "Received Name": 11,
+        "Amount (THB)": 11,
+        "Fee (THB)": 11,
+        "Available Balance (THB)": 11,
+        "- Email": 11
+      }
+    },
+    {
+      "bank": "krungsri",
+      "template": "Result of bill payment (Success)",
+      "count": 18,
+      "example_file": "sample-emails/074_20260717-124903_krungsri_Result-of-bill-payment-Success_19f6e9f1b054e12c.txt",
+      "parser_status_counts": {
+        "complete": 18
+      },
+      "transaction_type_counts": {
+        "bill_payment": 18
+      },
+      "direction_counts": {
+        "out": 18
+      },
+      "raw_field_key_counts": {
+        "result": 18,
+        "transaction_type": 18,
+        "account_name": 18,
+        "counterparty": 18,
+        "amount": 18,
+        "fee": 18,
+        "reference_1": 4,
+        "reference_2": 6,
+        "reference_number": 18,
+        "occurred_at": 18,
+        "memo": 18,
+        "merchant_code": 14,
+        "transaction_code": 9,
+        "รหัสธุรกรรมถุงเงิน": 2,
+        "merchant_reference": 1
+      }
+    },
+    {
+      "bank": "krungsri",
+      "template": "Result of fund transfer to PromptPay (Success)",
+      "count": 8,
+      "example_file": "sample-emails/070_20260718-122319_krungsri_Result-of-fund-transfer-to-PromptPay-Success_19f73adea9602568.txt",
+      "parser_status_counts": {
+        "complete": 8
+      },
+      "transaction_type_counts": {
+        "promptpay_transfer": 8
+      },
+      "direction_counts": {
+        "out": 8
+      },
+      "raw_field_key_counts": {
+        "result": 8,
+        "transaction_type": 8,
+        "account_name": 8,
+        "counterparty": 8,
+        "amount": 8,
+        "fee": 8,
+        "reference_number": 8,
+        "occurred_at": 8,
+        "memo": 8
+      }
+    },
+    {
+      "bank": "krungsri",
+      "template": "Result of fund transfer to other person's account (Success)",
+      "count": 1,
+      "example_file": "sample-emails/080_20260715-193804_krungsri_Result-of-fund-transfer-to-other-person-s-account-Success_19f65c8e6b1f6e2e.txt",
+      "parser_status_counts": {
+        "complete": 1
+      },
+      "transaction_type_counts": {
+        "bank_transfer": 1
+      },
+      "direction_counts": {
+        "out": 1
+      },
+      "raw_field_key_counts": {
+        "result": 1,
+        "transaction_type": 1,
+        "account_name": 1,
+        "counterparty": 1,
+        "ธนาคารของบัญชีผู้รับโอน": 1,
+        "amount": 1,
+        "fee": 1,
+        "reference_number": 1,
+        "occurred_at": 1,
+        "memo": 1,
+        "recipient_memo": 1
+      }
+    },
+    {
+      "bank": "krungsri",
+      "template": "transfer-ewallet-result-success",
+      "count": 6,
+      "example_file": "sample-emails/081_20260715-171809_krungsri_transfer-ewallet-result-success_19f6548c621d598c.txt",
+      "parser_status_counts": {
+        "complete": 6
+      },
+      "transaction_type_counts": {
+        "topup": 6
+      },
+      "direction_counts": {
+        "out": 6
+      },
+      "raw_field_key_counts": {
+        "result": 6,
+        "transaction_type": 6,
+        "account_name": 6,
+        "counterparty": 6,
+        "to_wallet": 6,
+        "amount": 6,
+        "fee": 6,
+        "reference_number": 6,
+        "occurred_at": 6,
+        "memo": 6
+      }
+    },
+    {
+      "bank": "lhbank",
+      "template": "[แจ้งเตือน] – การเข้าใช้งานแอปพลิเคชัน / Login Notification.",
+      "count": 18,
+      "example_file": "sample-emails/003_20260727-150441_lhbank_Login-Notification_19fa29ad5990f8c2.txt",
+      "parser_status_counts": {
+        "ignored": 18
+      },
+      "transaction_type_counts": {
+        "notification": 18
+      },
+      "direction_counts": {
+        "unknown": 18
+      },
+      "raw_field_key_counts": {
+        "ignored_reason": 18
+      }
+    },
+    {
+      "bank": "lhbank",
+      "template": "[แจ้งเตือน] – จ่ายบิลสำเร็จ / Successful Bill Payment",
+      "count": 8,
+      "example_file": "sample-emails/015_20260726-121537_lhbank_Successful-Bill-Payment_19f9cd9adbf470fb.txt",
+      "parser_status_counts": {
+        "complete": 8
+      },
+      "transaction_type_counts": {
+        "bill_payment": 8
+      },
+      "direction_counts": {
+        "out": 8
+      },
+      "raw_field_key_counts": {
+        "occurred_at": 8,
+        "device": 8,
+        "from_account_info": 8,
+        "counterparty": 8,
+        "merchant_code_1": 1,
+        "reference_2": 1,
+        "amount": 8,
+        "fee": 8,
+        "memo": 8
+      }
+    },
+    {
+      "bank": "lhbank",
+      "template": "[แจ้งเตือน] – โอนเงินสำเร็จ / Successful Transfer",
+      "count": 11,
+      "example_file": "sample-emails/018_20260725-184559_lhbank_Successful-Transfer_19f9918b515ab7c2.txt",
+      "parser_status_counts": {
+        "complete": 11
+      },
+      "transaction_type_counts": {
+        "bank_transfer": 11
+      },
+      "direction_counts": {
+        "out": 11
+      },
+      "raw_field_key_counts": {
+        "occurred_at": 11,
+        "device": 11,
+        "from_account_info": 11,
+        "counterparty": 11,
+        "amount": 11,
+        "fee": 11,
+        "memo": 11
+      }
+    },
+    {
+      "bank": "scb",
+      "template": "แจ้งเตือนจากแอพ SCB Easy: บริการอัตโนมัติแจ้งเตือนการทำธุรกรรม",
+      "count": 1,
+      "example_file": "sample-emails/001_20260728-071636_scb_SCB-Easy_19fa614a3107507b.txt",
+      "parser_status_counts": {
+        "complete": 1
+      },
+      "transaction_type_counts": {
+        "bank_transfer": 1
+      },
+      "direction_counts": {
+        "out": 1
+      },
+      "raw_field_key_counts": {
+        "transaction_type_label": 1,
+        "from_bank": 1,
+        "from_account": 1,
+        "to_bank": 1,
+        "to_account": 1,
+        "details": 1,
+        "amount": 1,
+        "occurred_at": 1
+      }
+    }
+  ],
+  "label_sequences": [
+    {
+      "bank": "kbank",
+      "template": "K PLUS credit card email statement",
+      "example_file": "sample-emails/091_20260713-205645_kbank_K-PLUS-Your-requested-K-Credit-Card-email-statement-06-2026-49900845_19f5bc4416a13e4d.txt",
+      "sequences": [
+        {
+          "count": 6,
+          "labels": [
+            "DD",
+            "MM",
+            "YYYY"
+          ]
+        }
+      ]
+    },
+    {
+      "bank": "kbank",
+      "template": "Result of Bill Payment (Success)",
+      "example_file": "sample-emails/002_20260727-162529_kbank_Result-of-Bill-Payment-Success_19fa2e4e1a78ff4f.txt",
+      "sequences": [
+        {
+          "count": 14,
+          "labels": [
+            "วันที่ทำรายการ",
+            "เลขที่รายการ",
+            "ชำระเงินจากบัญชี",
+            "เพื่อเข้าบัญชีบริษัท",
+            "รหัสร้านค้า",
+            "จำนวนเงิน (บาท)",
+            "ค่าธรรมเนียม (บาท)",
+            "ยอดถอนได้ (บาท)",
+            "- อีเมล"
+          ]
+        },
+        {
+          "count": 4,
+          "labels": [
+            "- Facebook",
+            "- LINE Official Account",
+            "Subject",
+            "Transaction Date",
+            "Transaction Number",
+            "Paid From Account",
+            "Company Name",
+            "REFERENCE 1",
+            "Amount (THB)",
+            "Fee (THB)",
+            "Available Balance (THB)",
+            "- Email",
+            "- Facebook",
+            "- LINE Official Account"
+          ]
+        },
+        {
+          "count": 2,
+          "labels": [
+            "- Facebook",
+            "- LINE Official Account",
+            "Subject",
+            "Transaction Date",
+            "Transaction Number",
+            "Paid From Account",
+            "Company Name",
+            "Card No.",
+            "Amount (THB)",
+            "Fee (THB)",
+            "Available Balance (THB)",
+            "- Email",
+            "- Facebook",
+            "- LINE Official Account"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "วันที่ทำรายการ",
+            "เลขที่รายการ",
+            "ชำระเงินจากบัญชี",
+            "เพื่อเข้าบัญชีบริษัท",
+            "เลขที่อ้างอิงที่ 1",
+            "จำนวนเงิน (บาท)",
+            "ค่าธรรมเนียม (บาท)",
+            "ยอดถอนได้ (บาท)",
+            "- อีเมล"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "- Facebook",
+            "- LINE Official Account",
+            "Subject",
+            "Transaction Date",
+            "Transaction Number",
+            "Paid From Account",
+            "Company Name",
+            "MERCHANTNO.1",
+            "Amount (THB)",
+            "Fee (THB)",
+            "Available Balance (THB)",
+            "- Email",
+            "- Facebook",
+            "- LINE Official Account"
+          ]
+        }
+      ]
+    },
+    {
+      "bank": "kbank",
+      "template": "Result of Funds Transfer (Success)",
+      "example_file": "sample-emails/005_20260727-125637_kbank_Result-of-Funds-Transfer-Success_19fa2258fe1b07c0.txt",
+      "sequences": [
+        {
+          "count": 10,
+          "labels": [
+            "- Facebook",
+            "- LINE Official Account",
+            "Subject",
+            "Transaction Date",
+            "Transaction Number",
+            "From Account",
+            "To Bank",
+            "To Account",
+            "Account Name",
+            "Amount (THB)",
+            "Fee (THB)",
+            "Available Balance (THB)",
+            "- Email",
+            "- Facebook",
+            "- LINE Official Account"
+          ]
+        }
+      ]
+    },
+    {
+      "bank": "kbank",
+      "template": "Result of PromptPay Funds Transfer (Success)",
+      "example_file": "sample-emails/009_20260726-183309_kbank_Result-of-PromptPay-Funds-Transfer-Success_19f9e336943dffe3.txt",
+      "sequences": [
+        {
+          "count": 11,
+          "labels": [
+            "- Facebook",
+            "- LINE Official Account",
+            "Subject",
+            "Transaction Date",
+            "Transaction Number",
+            "From Account",
+            "To PromptPay ID",
+            "Received Name",
+            "Amount (THB)",
+            "Fee (THB)",
+            "Available Balance (THB)",
+            "- Email",
+            "- Facebook",
+            "- LINE Official Account"
+          ]
+        }
+      ]
+    },
+    {
+      "bank": "krungsri",
+      "template": "Result of bill payment (Success)",
+      "example_file": "sample-emails/074_20260717-124903_krungsri_Result-of-bill-payment-Success_19f6e9f1b054e12c.txt",
+      "sequences": [
+        {
+          "count": 9,
+          "labels": [
+            "ผลการทำรายการ",
+            "ประเภทรายการ",
+            "หักจากบัญชี",
+            "ผู้รับชำระเงิน",
+            "จำนวนเงิน (บาท)",
+            "ค่าธรรมเนียม (บาท)",
+            "รหัสร้านค้า",
+            "รหัสธุรกรรม",
+            "หมายเลขอ้างอิง",
+            "วัน-เวลาที่ทำรายการ",
+            "บันทึกช่วยจำ"
+          ]
+        },
+        {
+          "count": 2,
+          "labels": [
+            "ผลการทำรายการ",
+            "ประเภทรายการ",
+            "หักจากบัญชี",
+            "ผู้รับชำระเงิน",
+            "จำนวนเงิน (บาท)",
+            "ค่าธรรมเนียม (บาท)",
+            "รหัสอ้างอิง 1",
+            "รหัสอ้างอิง 2",
+            "หมายเลขอ้างอิง",
+            "วัน-เวลาที่ทำรายการ",
+            "บันทึกช่วยจำ"
+          ]
+        },
+        {
+          "count": 2,
+          "labels": [
+            "ผลการทำรายการ",
+            "ประเภทรายการ",
+            "หักจากบัญชี",
+            "ผู้รับชำระเงิน",
+            "จำนวนเงิน (บาท)",
+            "ค่าธรรมเนียม (บาท)",
+            "หมายเลขร้านค้า1",
+            "เลขที่อ้างอิง2",
+            "หมายเลขอ้างอิง",
+            "วัน-เวลาที่ทำรายการ",
+            "บันทึกช่วยจำ"
+          ]
+        },
+        {
+          "count": 2,
+          "labels": [
+            "ผลการทำรายการ",
+            "ประเภทรายการ",
+            "หักจากบัญชี",
+            "ผู้รับชำระเงิน",
+            "จำนวนเงิน (บาท)",
+            "ค่าธรรมเนียม (บาท)",
+            "เลขที่อ้างอิง 1",
+            "เลขที่อ้างอิง 2",
+            "หมายเลขอ้างอิง",
+            "วัน-เวลาที่ทำรายการ",
+            "บันทึกช่วยจำ"
+          ]
+        },
+        {
+          "count": 2,
+          "labels": [
+            "ผลการทำรายการ",
+            "ประเภทรายการ",
+            "หักจากบัญชี",
+            "ผู้รับชำระเงิน",
+            "จำนวนเงิน (บาท)",
+            "ค่าธรรมเนียม (บาท)",
+            "รหัสร้านค้า",
+            "รหัสธุรกรรมถุงเงิน",
+            "หมายเลขอ้างอิง",
+            "วัน-เวลาที่ทำรายการ",
+            "บันทึกช่วยจำ"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "ผลการทำรายการ",
+            "ประเภทรายการ",
+            "หักจากบัญชี",
+            "ผู้รับชำระเงิน",
+            "จำนวนเงิน (บาท)",
+            "ค่าธรรมเนียม (บาท)",
+            "รหัสร้านค้า",
+            "รหัสอ้างอิงร้านค้า",
+            "หมายเลขอ้างอิง",
+            "วัน-เวลาที่ทำรายการ",
+            "บันทึกช่วยจำ"
+          ]
+        }
+      ]
+    },
+    {
+      "bank": "krungsri",
+      "template": "Result of fund transfer to PromptPay (Success)",
+      "example_file": "sample-emails/070_20260718-122319_krungsri_Result-of-fund-transfer-to-PromptPay-Success_19f73adea9602568.txt",
+      "sequences": [
+        {
+          "count": 8,
+          "labels": [
+            "ผลการทำรายการ",
+            "ประเภทรายการ",
+            "จากบัญชี",
+            "ไปยังพร้อมเพย์",
+            "จำนวนเงิน (บาท)",
+            "ค่าธรรมเนียม (บาท)",
+            "หมายเลขอ้างอิง",
+            "วัน-เวลาที่ทำรายการ",
+            "บันทึกช่วยจำ"
+          ]
+        }
+      ]
+    },
+    {
+      "bank": "krungsri",
+      "template": "Result of fund transfer to other person's account (Success)",
+      "example_file": "sample-emails/080_20260715-193804_krungsri_Result-of-fund-transfer-to-other-person-s-account-Success_19f65c8e6b1f6e2e.txt",
+      "sequences": [
+        {
+          "count": 1,
+          "labels": [
+            "ผลการทำรายการ",
+            "ประเภทรายการ",
+            "บัญชีผู้โอน",
+            "บัญชีผู้รับโอน",
+            "ธนาคารของบัญชีผู้รับโอน",
+            "จำนวนเงิน (บาท)",
+            "ค่าธรรมเนียม (บาท)",
+            "หมายเลขอ้างอิง",
+            "วัน-เวลาที่ทำรายการ",
+            "บันทึกช่วยจำ",
+            "บันทึกแจ้งผู้รับโอน"
+          ]
+        }
+      ]
+    },
+    {
+      "bank": "krungsri",
+      "template": "transfer-ewallet-result-success",
+      "example_file": "sample-emails/081_20260715-171809_krungsri_transfer-ewallet-result-success_19f6548c621d598c.txt",
+      "sequences": [
+        {
+          "count": 6,
+          "labels": [
+            "ผลการทำรายการ",
+            "ประเภทรายการ",
+            "หักจากบัญชี",
+            "ผู้รับชำระเงิน",
+            "e-Wallet",
+            "จำนวนเงิน (บาท)",
+            "ค่าธรรมเนียม (บาท)",
+            "หมายเลขอ้างอิง",
+            "วัน-เวลาที่ทำรายการ",
+            "บันทึกช่วยจำ"
+          ]
+        }
+      ]
+    },
+    {
+      "bank": "lhbank",
+      "template": "[แจ้งเตือน] – การเข้าใช้งานแอปพลิเคชัน / Login Notification.",
+      "example_file": "sample-emails/003_20260727-150441_lhbank_Login-Notification_19fa29ad5990f8c2.txt",
+      "sequences": [
+        {
+          "count": 18,
+          "labels": [
+            "วันเวลา",
+            "อุปกรณ์"
+          ]
+        }
+      ]
+    },
+    {
+      "bank": "lhbank",
+      "template": "[แจ้งเตือน] – จ่ายบิลสำเร็จ / Successful Bill Payment",
+      "example_file": "sample-emails/015_20260726-121537_lhbank_Successful-Bill-Payment_19f9cd9adbf470fb.txt",
+      "sequences": [
+        {
+          "count": 7,
+          "labels": [
+            "วันเวลา",
+            "อุปกรณ์",
+            "จาก",
+            "ไปยัง",
+            "จำนวนเงิน (บาท)",
+            "ค่าธรรมเนียม (บาท)",
+            "บันทึกช่วยจำ"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "วันเวลา",
+            "อุปกรณ์",
+            "จาก",
+            "ไปยัง",
+            "หมายเลขร้านค้า1",
+            "เลขที่อ้างอิง2",
+            "จำนวนเงิน (บาท)",
+            "ค่าธรรมเนียม (บาท)",
+            "บันทึกช่วยจำ"
+          ]
+        }
+      ]
+    },
+    {
+      "bank": "lhbank",
+      "template": "[แจ้งเตือน] – โอนเงินสำเร็จ / Successful Transfer",
+      "example_file": "sample-emails/018_20260725-184559_lhbank_Successful-Transfer_19f9918b515ab7c2.txt",
+      "sequences": [
+        {
+          "count": 11,
+          "labels": [
+            "วันเวลา",
+            "อุปกรณ์",
+            "จาก",
+            "ไปยัง",
+            "จำนวนเงิน (บาท)",
+            "ค่าธรรมเนียม (บาท)",
+            "บันทึกช่วยจำ"
+          ]
+        }
+      ]
+    },
+    {
+      "bank": "scb",
+      "template": "แจ้งเตือนจากแอพ SCB Easy: บริการอัตโนมัติแจ้งเตือนการทำธุรกรรม",
+      "example_file": "sample-emails/001_20260728-071636_scb_SCB-Easy_19fa614a3107507b.txt",
+      "sequences": [
+        {
+          "count": 1,
+          "labels": [
+            "transaction_type_label",
+            "from_bank",
+            "from_account",
+            "to_bank",
+            "to_account",
+            "details",
+            "amount",
+            "occurred_at"
+          ]
+        }
+      ]
+    }
+  ],
+  "incomplete_examples": []
+}

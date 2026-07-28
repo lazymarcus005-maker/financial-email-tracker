@@ -22,6 +22,14 @@
         >Ignore</button>
         <button
             class="px-2 py-1 rounded-md border border-neutral-300 text-xs hover:bg-neutral-100"
+            hx-post="/api/unknown/{{ item.id }}/ignore-subject"
+            hx-target="#unknown-row-{{ item.id }}"
+            hx-swap="outerHTML"
+            hx-confirm="Ignore this subject in future ingestion runs?"
+            hx-disabled-elt="this"
+        >Ignore Subject</button>
+        <button
+            class="px-2 py-1 rounded-md border border-neutral-300 text-xs hover:bg-neutral-100"
             hx-post="/api/unknown/{{ item.id }}/reparse"
             hx-target="#unknown-row-{{ item.id }}"
             hx-swap="outerHTML"

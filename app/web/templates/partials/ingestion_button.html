@@ -1,4 +1,10 @@
-<div id="ingestion-run">
+<form id="ingestion-run" class="flex flex-wrap items-center gap-2">
+    <select name="window" class="input w-32">
+        <option value="default">Default</option>
+        <option value="last_7_days">Last 7 days</option>
+        <option value="last_30_days">Last 30 days</option>
+        <option value="last_90_days">Last 90 days</option>
+    </select>
     <button
         class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
         hx-post="/api/ingestion/run"
@@ -14,4 +20,4 @@
         </span>
         <span class="button-text">Run Ingestion Now</span>
     </button>
-</div>
+</form>

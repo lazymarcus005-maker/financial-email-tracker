@@ -42,6 +42,39 @@ async def ignore_unknown(unknown_id: int, request: Request, db: aiosqlite.Connec
     return item
 
 
+@router.post("/unknown/{unknown_id}/ignore-subject")
+async def ignore_unknown_subject(
+    unknown_id: int,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    row = await queries.get_unknown(db, unknown_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Unknown pattern not found")
+    subject = row.get("subject")
+    if not subject:
+        raise HTTPException(status_code=400, detail="Unknown email has no subject")
+    await queries.create_ignored_subject(db, subject, reason="unknown email")
+    await queries.mark_unknown_subject_ignored(db, subject)
+    item = await queries.get_unknown(db, unknown_id)
+    if request.headers.get("HX-Request") == "true":
+        return templates.TemplateResponse(request, "partials/unknown_row.html", {"item": item})
+    return item
+
+
+@router.delete("/ignored-subjects/{ignored_subject_id}", status_code=204)
+async def delete_ignored_subject(
+    ignored_subject_id: int,
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    await queries.delete_ignored_subject(db, ignored_subject_id)
+    if request.headers.get("HX-Request") == "true":
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse("")
+    return None
+
+
 @router.delete("/unknown/{unknown_id}", status_code=204)
 async def delete_unknown(unknown_id: int, request: Request, db: aiosqlite.Connection = Depends(get_db)):
     row = await queries.get_unknown(db, unknown_id)
@@ -83,6 +116,7 @@ async def unknown_page(
     status: str | None = None,
 ):
     items, total = await queries.list_unknown(db, page=page, page_size=page_size, status=status)
+    ignored_subjects = await queries.list_ignored_subjects(db)
     total_pages = max(1, -(-total // page_size))
     return templates.TemplateResponse(
         request,
@@ -94,5 +128,6 @@ async def unknown_page(
             "page_size": page_size,
             "total_pages": total_pages,
             "filters": {"status": status or ""},
+            "ignored_subjects": ignored_subjects,
         },
     )

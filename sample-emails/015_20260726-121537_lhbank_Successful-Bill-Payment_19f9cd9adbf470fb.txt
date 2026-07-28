@@ -1,0 +1,251 @@
+Gmail Message ID: 19f9cd9adbf470fb
+Gmail Thread ID: 19f9cd9adbf470fb
+Received At: 2026-07-26T12:15:37+07:00
+Sender: LHB You <LHBYou@lhbank.co.th>
+Subject: [แจ้งเตือน] – จ่ายบิลสำเร็จ / Successful Bill Payment
+Bank Key: lhbank
+Body Text Length: 2726
+Body HTML Length: 12553
+
+--- BODY TEXT ---
+Email
+ 
+ 
+ 
+ 
+ 
+
+ 
+ 
+ 
+ 
+ 
+ LH BANK
+ 
+
+ 
+
+ 
+ 
+ 
+ 
+ 
+ เรียน คุณ พิชเยนทร์ เย็นศิริ
+ 
+
+ 
+
+ 
+ 
+ ธนาคาร แลนด์ แอนด์ เฮ้าส์ ขอแจ้งว่า คุณได้ทำรายการจ่ายบิลสำเร็จ โดยมีรายละเอียด ดังนี้
+ 
+ 
+ 
+ 
+ รายละเอียด
+ 
+
+ 
+ วันเวลา
+ วันอาทิตย์, 26 ก.ค. 2569 12:15
+ 
+
+ 
+ อุปกรณ์
+ iPhone 15 Pro
+ 
+
+ 
+ จาก
+ XXX-X-15441-X : นาย พิชเยนทร์ เย็นศิริ
+ 
+
+ 
+ 
+ ออมทรัพย์
+ 
+
+ 
+ ไปยัง
+ CP AXTRA PUBLIC COMPANY LIMITED (HEAD
+ 
+
+ 
+ 
+ หมายเลขร้านค้า1 : 000002205808025
+ 
+
+ เลขที่อ้างอิง2 : 460916606S4FPA000000
+
+ 
+ 
+ 
+ จำนวนเงิน (บาท)
+ 256.25
+ 
+
+ 
+ ค่าธรรมเนียม (บาท)
+ 0.00
+ 
+
+ 
+ บันทึกช่วยจำ
+ 
+ 
+
+ 
+ 
+
+ 
+
+ 
+ 
+ ธนาคารฯ ขอขอบพระคุณเป็นอย่างสูงที่คุณได้ให้ความไว้วางใจใช้งานแอปพลิเคชันของธนาคารฯ หากคุณไม่ได้ทำรายการดังกล่าว โปรดติดต่อ LH Bank Call Center 1327 ทันที
+ 
+
+ 
+
+ 
+ 
+ ขอแสดงความนับถือ
+
+ LHB You, 
+
+ ธนาคาร แลนด์ แอนด์ เฮ้าส์ จำกัด (มหาชน)
+ 
+
+ 
+
+ 
+ 
+ หมายเหตุ:
+
+ - อีเมลฉบับนี้เป็นการแจ้งข้อมูลโดยอัตโนมัติ โปรดอย่าตอบกลับ
+
+ - หากต้องการสอบถามรายละเอียดเพิ่มเติม โปรดติดต่อ LH Bank Call Center 1327 
+
+ - ธนาคารไม่มีนโยบายที่จะสอบถามรหัสลับส่วนตัว (Username, Password and PIN) ของคุณ โปรดเก็บรักษาข้อมูลส่วนตัวดังกล่าวของคุณไว้เป็นความลับ
+ 
+
+ 
+
+ 
+
+ 
+ 
+ Dear Khun Pichayean Yensiri
+ 
+
+ 
+
+ 
+ 
+ Land and Houses Bank would like to inform that you have successfully made a payment transaction as per the following details.
+ 
+ 
+ 
+ 
+ Details
+ 
+
+ 
+ Date & Time
+ Sunday, 26 Jul 2026 12:15
+ 
+
+ 
+ Device
+ iPhone 15 Pro
+ 
+
+ 
+ From
+ XXX-X-15441-X : นาย พิชเยนทร์ เย็นศิริ
+ 
+
+ 
+ 
+ Savings
+ 
+
+ 
+ To
+ CP AXTRA PUBLIC COMPANY LIMITED (HEAD
+ 
+
+ 
+ 
+ MERCHANTNO.1 : 000002205808025
+ 
+
+ REF#2 : 460916606S4FPA000000
+
+ 
+ 
+ 
+ Amount (บาท)
+ 256.25
+ 
+
+ 
+ Fee (บาท)
+ 0.00
+ 
+
+ 
+ Memo
+ 
+ 
+
+ 
+ 
+
+ 
+
+ 
+ 
+ The Bank is highly appreciated the confidence and trust that you have placed in the application. If you have not done this activity, please contact LH Bank Call Center 1327 immediately.
+ 
+
+ 
+
+ 
+ 
+ Your sincerely,
+
+ LHB You, 
+
+ Land and Houses Bank Public Company Limited
+ 
+
+ 
+
+ 
+ 
+ Note:
+
+ - This email is auto-generated. Please do not reply.
+
+ - If you have further enquiries or need more information, please contact LH Bank Call Center at 1327 
+
+ - LH Bank will never ask for your Username, Password and PIN. Do not give this information to anyone.
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+Confidentiality & Disclaimer:
+
+    The information contained in this e-mail and any attachment(s) may be confidential and/or legally privileged. If you are not the intended recipient, you must not use, copy, disclose, distribute or retain this communication or any part of it. Please delete all copies of this e-mail from your computer system and inform the sender immediately. Any opinion and interference in this email may not necessarily represent the opinion of LH BANK or any entity in the LH BANK.
