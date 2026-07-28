@@ -22,6 +22,22 @@ def is_label_line(line: str) -> bool:
     return bool(label) and "\n" not in label
 
 
+def _merge_split_currency_labels(lines: list[str]) -> list[str]:
+    """Merge Krungsri labels split as 'จำนวนเงิน' then '(บาท):' into one label."""
+    merged: list[str] = []
+    i = 0
+    while i < len(lines):
+        current = lines[i].strip()
+        next_line = lines[i + 1].strip() if i + 1 < len(lines) else ""
+        if current in {"จำนวนเงิน", "ค่าธรรมเนียม"} and next_line in {"(บาท):", "(บาท)："}:
+            merged.append(f"{current} (บาท):")
+            i += 2
+            continue
+        merged.append(lines[i])
+        i += 1
+    return merged
+
+
 def extract_fields(text: str) -> list[tuple[str, str]]:
     """Extract (label, value) pairs from the email body.
 
@@ -30,7 +46,7 @@ def extract_fields(text: str) -> list[tuple[str, str]]:
     Empty values (a label immediately followed by another label or EOF) yield "".
     """
     fields: list[tuple[str, str]] = []
-    lines = text.split("\n")
+    lines = _merge_split_currency_labels(text.split("\n"))
     i = 0
     n = len(lines)
 

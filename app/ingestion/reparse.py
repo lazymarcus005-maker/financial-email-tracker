@@ -44,6 +44,15 @@ async def reparse_transaction(
 
     message, transaction = await _fetch_and_parse(row["gmail_message_id"], gmail_client, registry)
 
+    if transaction is not None and transaction.parse_status == "ignored":
+        await db.execute(
+            "UPDATE transactions SET parse_status = 'ignored', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (transaction_id,),
+        )
+        await db.commit()
+        logger.info(f"Reparse of transaction {transaction_id} returned ignored")
+        return {"status": "ignored"}
+
     if transaction is None or transaction.parse_status == "failed":
         warnings = transaction.parse_warnings if transaction else ["Parser returned no transaction"]
         await db.execute(
@@ -109,6 +118,25 @@ async def reparse_unknown(
     engine = engine or CategoryEngine()
 
     message, transaction = await _fetch_and_parse(row["gmail_message_id"], gmail_client, registry)
+
+    if transaction is not None and transaction.parse_status == "ignored":
+        await db.execute(
+            """
+            UPDATE unknown_patterns
+            SET warnings_json = ?, raw_fields_json = ?, amount = ?, transaction_code = ?, status = 'ignored'
+            WHERE id = ?
+            """,
+            (
+                json.dumps(transaction.parse_warnings, ensure_ascii=False),
+                json.dumps(transaction.raw_fields, ensure_ascii=False),
+                transaction.amount,
+                persistence.extract_transaction_code(transaction.raw_fields),
+                unknown_id,
+            ),
+        )
+        await db.commit()
+        logger.info(f"Reparse of unknown pattern {unknown_id} returned ignored")
+        return {"status": "ignored"}
 
     if transaction is None or transaction.parse_status == "failed":
         warnings = transaction.parse_warnings if transaction else ["Parser returned no transaction"]

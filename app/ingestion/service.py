@@ -52,6 +52,10 @@ async def run_ingestion(
 
                 transaction = registry.parse(message.body_text, message.sender, subject=message.subject)
 
+                if transaction is not None and transaction.parse_status == "ignored":
+                    logger.info(f"Skipping ignored message {message.gmail_message_id} ({message.subject!r})")
+                    continue
+
                 if transaction is None or transaction.parse_status == "failed":
                     await persistence.insert_unknown(db, message, transaction)
                     await db.commit()

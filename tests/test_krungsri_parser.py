@@ -61,6 +61,103 @@ def test_parses_sample_3_cafe_amazon():
     assert transaction.occurred_at == "2026-06-30T07:30:10"
 
 
+def test_parses_split_currency_labels():
+    email = """
+เรียน ลูกค้า
+
+ผลการทำรายการ:
+ทำรายการสำเร็จ
+ประเภทรายการ:
+ชำระค่าสินค้าและบริการ
+หักจากบัญชี:
+PICHAYEAN YEN
+ผู้รับชำระเงิน:
+Payment to Shopee
+จำนวนเงิน
+(บาท):
+500.00
+ค่าธรรมเนียม
+(บาท):
+0.00
+หมายเลขอ้างอิง:
+KSA00000000700000000
+วัน-เวลาที่ทำรายการ:
+17/07/2569 12:49:00
+บันทึกช่วยจำ:
+"""
+    transaction = KrungsriParser().parse(email, subject="Result of bill payment (Success)")
+
+    assert transaction is not None
+    assert transaction.parse_status == "complete"
+    assert transaction.amount == 500.0
+    assert transaction.fee == 0.0
+    assert transaction.counterparty == "Payment to Shopee"
+
+
+def test_parses_promptpay_transfer_template():
+    email = """
+ผลการทำรายการ:
+ทำรายการสำเร็จ
+ประเภทรายการ:
+โอนเงินพร้อมเพย์
+จากบัญชี:
+PICHAYEAN YEN
+ไปยังพร้อมเพย์:
+XXX-XXX-8899 Receiver Name
+จำนวนเงิน (บาท):
+200.00
+ค่าธรรมเนียม (บาท):
+0.00
+หมายเลขอ้างอิง:
+KSA00000000724593176
+วัน-เวลาที่ทำรายการ:
+18/07/2569 12:23:14
+บันทึกช่วยจำ:
+"""
+    transaction = KrungsriParser().parse(
+        email, subject="Result of fund transfer to PromptPay (Success)"
+    )
+
+    assert transaction is not None
+    assert transaction.transaction_type == "promptpay_transfer"
+    assert transaction.counterparty == "XXX-XXX-8899 Receiver Name"
+    assert transaction.parse_status == "complete"
+
+
+def test_parses_ewallet_topup_template_and_ignores_footer_memo():
+    email = """
+ผลการทำรายการ:
+ทำรายการสำเร็จ
+ประเภทรายการ:
+โอนเงิน/เติมเงินเข้า e-Wallet
+หักจากบัญชี:
+PICHAYEAN YEN
+ผู้รับชำระเงิน:
+Receiver Name
+ไปยัง
+e-Wallet:
+004999165302117
+จำนวนเงิน
+(บาท):
+30.00
+ค่าธรรมเนียม
+(บาท):
+0.00
+หมายเลขอ้างอิง:
+KSA00000000716272555
+วัน-เวลาที่ทำรายการ:
+15/07/2569 17:18:02
+บันทึกช่วยจำ:
+หากท่านไม่ได้เป็นผู้ทำรายการ กรุณาติดต่อเจ้าหน้าที่
+"""
+    transaction = KrungsriParser().parse(email, subject="transfer-ewallet-result-success")
+
+    assert transaction is not None
+    assert transaction.transaction_type == "topup"
+    assert transaction.amount == 30.0
+    assert transaction.raw_fields["memo"] == ""
+
+
 def test_can_handle_krungsri_sender():
     parser = KrungsriParser()
     assert parser.can_handle("admin@krungsri.com")

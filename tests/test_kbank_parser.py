@@ -57,6 +57,18 @@ def test_returns_none_when_no_fields_found():
     assert transaction is None
 
 
+def test_ignores_credit_card_email_statement():
+    parser = KBankParser()
+    transaction = parser.parse(
+        "DD\nMM\nYYYY",
+        subject="K PLUS : Your requested K-Credit Card email statement 06/2026 [49900845]",
+    )
+
+    assert transaction is not None
+    assert transaction.parse_status == "ignored"
+    assert transaction.status == "ignored"
+
+
 def test_can_handle_matches_kasikornbank_and_kplus_senders():
     parser = KBankParser()
     assert parser.can_handle("KPLUS@kasikornbank.com")

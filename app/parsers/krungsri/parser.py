@@ -23,6 +23,11 @@ _STATUS_MAP = {
 _TYPE_MAP = {
     "ชำระค่าสินค้าและบริการ": "bill_payment",
     "โอนเงิน": "bank_transfer",
+    "โอนเงินพร้อมเพย์": "promptpay_transfer",
+    "โอนเงินเข้าบัญชีบุคคลอื่นต่างธนาคาร": "bank_transfer",
+    "โอนเงินไปยังบัญชีบุคคลอื่น": "bank_transfer",
+    "โอนเงินไปยังพร้อมเพย์": "promptpay_transfer",
+    "โอนเงิน/เติมเงินเข้า e-Wallet": "topup",
     "ชำระบิล": "bill_payment",
 }
 

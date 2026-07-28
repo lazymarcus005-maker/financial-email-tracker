@@ -13,8 +13,14 @@ logger = logging.getLogger(__name__)
 
 # Transaction phrasing found in the notification prose (not a labelled field).
 _TYPE_MAP = {
+    "โอนเงิน": "bank_transfer",
     "จ่ายบิล": "bill_payment",
 }
+
+_IGNORED_SUBJECT_MARKERS = (
+    "login notification",
+    "การเข้าใช้งานแอปพลิเคชัน",
+)
 
 
 def _detect_transaction_type(text: str) -> str:
@@ -22,6 +28,11 @@ def _detect_transaction_type(text: str) -> str:
         if phrase in text:
             return transaction_type
     return "unknown"
+
+
+def _is_ignored_subject(subject: str) -> bool:
+    subject_lower = (subject or "").lower()
+    return any(marker in subject_lower for marker in _IGNORED_SUBJECT_MARKERS)
 
 
 def _build_description(canonical: CanonicalFields) -> str | None:
@@ -45,6 +56,22 @@ class LHBankParser(BaseParser):
         """Parse an LH Bank notification email body into a canonical Transaction."""
         try:
             normalized = normalize(email_text)
+
+            if _is_ignored_subject(subject):
+                logger.info("LHBankParser: ignoring non-transaction notification")
+                return Transaction(
+                    transaction_type="notification",
+                    direction="unknown",
+                    status="ignored",
+                    occurred_at="",
+                    amount=0.0,
+                    description=subject or None,
+                    parse_status="ignored",
+                    parse_confidence=1.0,
+                    parse_warnings=[],
+                    raw_fields={"ignored_reason": "non_transaction_notification"},
+                )
+
             raw_fields = extract_fields(normalized)
 
             if not raw_fields:

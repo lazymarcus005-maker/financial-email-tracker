@@ -18,6 +18,14 @@ def test_detects_promptpay_transfer():
     assert attrs.status == "success"
 
 
+def test_detects_out_direction_from_kbank_result_transfer_subject():
+    canonical = CanonicalFields(status="Success")
+    attrs = detect("Result of Funds Transfer (Success)", canonical)
+
+    assert attrs.transaction_type == "bank_transfer"
+    assert attrs.direction == "out"
+
+
 def test_detects_bill_payment_direction_out():
     canonical = CanonicalFields()
     attrs = detect("K PLUS: Bill Payment Successful", canonical)

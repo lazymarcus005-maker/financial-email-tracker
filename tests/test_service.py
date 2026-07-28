@@ -51,6 +51,19 @@ def _make_transaction():
     )
 
 
+def _make_ignored_notification():
+    return Transaction(
+        transaction_type="notification",
+        direction="unknown",
+        status="ignored",
+        occurred_at="",
+        amount=0.0,
+        parse_status="ignored",
+        parse_confidence=1.0,
+        raw_fields={"ignored_reason": "non_transaction_notification"},
+    )
+
+
 @pytest.fixture
 def temp_db(tmp_path, monkeypatch):
     db_path = tmp_path / "test.db"
@@ -104,6 +117,31 @@ async def test_logs_unparseable_email_as_unknown(temp_db):
     row = await cursor.fetchone()
     await db.close()
     assert row["gmail_message_id"] == "msg-3"
+
+
+@pytest.mark.asyncio
+async def test_skips_ignored_parse_without_unknown_pattern(temp_db):
+    message = _make_message(
+        "msg-ignored",
+        sender="LHBYou@lhbank.co.th",
+    )
+    message.subject = "[แจ้งเตือน] - การเข้าใช้งานแอปพลิเคชัน / Login Notification."
+    reader = FakeReader([message])
+    registry = FakeRegistry({message.sender: _make_ignored_notification()})
+
+    summary = await run_ingestion("query", reader=reader, registry=registry)
+
+    assert summary == {"emails_checked": 1, "inserted": 0, "duplicates": 0, "failed": 0}
+
+    db = await database.get_connection()
+    cursor = await db.execute("SELECT COUNT(*) AS n FROM unknown_patterns")
+    unknown_count = (await cursor.fetchone())["n"]
+    cursor = await db.execute("SELECT COUNT(*) AS n FROM transactions")
+    transaction_count = (await cursor.fetchone())["n"]
+    await db.close()
+
+    assert unknown_count == 0
+    assert transaction_count == 0
 
 
 @pytest.mark.asyncio
