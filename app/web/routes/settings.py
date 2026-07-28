@@ -3,6 +3,7 @@
 import logging
 import json
 import secrets
+from pathlib import Path
 
 import aiosqlite
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
@@ -32,6 +33,26 @@ def _public_url_for(request: Request, route_name: str, settings: Settings) -> st
     return str(request.url_for(route_name))
 
 
+def _public_authorization_response(request: Request, redirect_uri: str) -> str:
+    if request.url.query:
+        return f"{redirect_uri}?{request.url.query}"
+    return redirect_uri
+
+
+def _masked_gmail_client_id(credentials_path: str) -> str:
+    try:
+        raw = json.loads(Path(credentials_path).read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return "credentials.json not found"
+
+    client_id = (raw.get("web") or raw.get("installed") or {}).get("client_id")
+    if not client_id:
+        return "client_id not found"
+    if len(client_id) <= 20:
+        return client_id
+    return f"{client_id[:8]}...{client_id[-16:]}"
+
+
 def _safe_settings(settings: Settings) -> dict:
     """Return settings safe to show in the UI - no tokens/credentials."""
     return {
@@ -50,11 +71,14 @@ def _safe_settings(settings: Settings) -> dict:
 
 @router.get("/settings")
 async def get_settings_view(
+    request: Request,
     settings: Settings = Depends(get_settings),
     owner_user_id: int = Depends(get_current_user_id),
 ):
     data = _safe_settings(settings)
     data["gmail_connected"] = token_exists(user_token_path(owner_user_id))
+    data["gmail_redirect_uri"] = _public_url_for(request, "gmail_oauth_callback", settings)
+    data["gmail_oauth_client_id"] = _masked_gmail_client_id(settings.GMAIL_CREDENTIALS_PATH)
     return data
 
 
@@ -128,6 +152,7 @@ async def gmail_disconnect(request: Request, owner_user_id: int = Depends(get_cu
 async def gmail_connect(request: Request, settings: Settings = Depends(get_settings)):
     state = secrets.token_urlsafe(24)
     redirect_uri = _public_url_for(request, "gmail_oauth_callback", settings)
+    logger.info("Starting Gmail OAuth connect with redirect_uri=%s", redirect_uri)
     try:
         authorization_url = build_authorization_url(
             redirect_uri=redirect_uri,
@@ -154,10 +179,11 @@ async def gmail_oauth_callback(
         raise HTTPException(status_code=400, detail="Invalid Gmail OAuth state")
 
     redirect_uri = _public_url_for(request, "gmail_oauth_callback", settings)
+    authorization_response = _public_authorization_response(request, redirect_uri)
     try:
         exchange_authorization_response(
             redirect_uri=redirect_uri,
-            authorization_response=str(request.url),
+            authorization_response=authorization_response,
             credentials_path=settings.GMAIL_CREDENTIALS_PATH,
             token_path=user_token_path(owner_user_id),
         )
@@ -177,4 +203,6 @@ async def settings_page(
 ):
     safe_settings = _safe_settings(settings)
     safe_settings["gmail_connected"] = token_exists(user_token_path(owner_user_id))
+    safe_settings["gmail_redirect_uri"] = _public_url_for(request, "gmail_oauth_callback", settings)
+    safe_settings["gmail_oauth_client_id"] = _masked_gmail_client_id(settings.GMAIL_CREDENTIALS_PATH)
     return templates.TemplateResponse(request, "settings.html", {"settings": safe_settings})

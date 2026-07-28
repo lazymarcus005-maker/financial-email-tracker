@@ -29,6 +29,16 @@
         </div>
     </div>
     <div id="gmail-status" class="text-sm text-neutral-500 mt-3">Manual ingestion uses the Gmail account connected to your user.</div>
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mt-4 pt-4 border-t border-neutral-200">
+        <div>
+            <dt class="text-xs text-neutral-500">OAuth Redirect URI</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5 break-all">{{ settings.gmail_redirect_uri }}</dd>
+        </div>
+        <div>
+            <dt class="text-xs text-neutral-500">OAuth Client ID</dt>
+            <dd class="text-sm text-neutral-900 mt-0.5 break-all">{{ settings.gmail_oauth_client_id }}</dd>
+        </div>
+    </dl>
 </div>
 
 <div class="card">

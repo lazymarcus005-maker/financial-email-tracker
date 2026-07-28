@@ -382,7 +382,7 @@ def test_settings_api_exposes_no_secrets(client):
     assert set(body) == {
         "gmail_query", "database_path", "schedule", "timezone", "ai_enabled",
         "ollama_base_url", "ollama_model", "parser_version", "line_configured", "log_level",
-        "gmail_connected",
+        "gmail_connected", "gmail_redirect_uri", "gmail_oauth_client_id",
     }
 
 
@@ -439,6 +439,67 @@ def test_gmail_connect_uses_public_base_url(client, monkeypatch):
 
     assert resp.status_code == 303
     assert captured["redirect_uri"] == "https://kplus.mxlabs.cloud/gmail/oauth2/callback"
+
+
+def test_gmail_callback_uses_public_authorization_response(client, monkeypatch):
+    from app.config import Settings
+    from app.web.routes import settings as settings_routes
+
+    captured = {}
+
+    def fake_exchange_authorization_response(
+        redirect_uri,
+        authorization_response,
+        credentials_path,
+        token_path,
+    ):
+        captured["redirect_uri"] = redirect_uri
+        captured["authorization_response"] = authorization_response
+
+    app.dependency_overrides[settings_routes.get_settings] = lambda: Settings(
+        PUBLIC_BASE_URL="https://kplus.mxlabs.cloud",
+        GMAIL_CREDENTIALS_PATH="secrets/credentials.json",
+    )
+    monkeypatch.setattr(settings_routes, "exchange_authorization_response", fake_exchange_authorization_response)
+    client.cookies.set(settings_routes.GMAIL_OAUTH_STATE_COOKIE, "state-123")
+
+    resp = client.get("/gmail/oauth2/callback?state=state-123&code=auth-code", follow_redirects=False)
+
+    assert resp.status_code == 303
+    assert captured["redirect_uri"] == "https://kplus.mxlabs.cloud/gmail/oauth2/callback"
+    assert (
+        captured["authorization_response"]
+        == "https://kplus.mxlabs.cloud/gmail/oauth2/callback?state=state-123&code=auth-code"
+    )
+
+
+def test_settings_reports_oauth_diagnostics(client, monkeypatch, tmp_path):
+    from app.config import Settings
+    from app.web.routes import settings as settings_routes
+
+    credentials_path = tmp_path / "credentials.json"
+    credentials_path.write_text(
+        json.dumps(
+            {
+                "web": {
+                    "client_id": "1234567890-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com",
+                    "client_secret": "do-not-show",
+                }
+            }
+        )
+    )
+    app.dependency_overrides[settings_routes.get_settings] = lambda: Settings(
+        PUBLIC_BASE_URL="https://kplus.mxlabs.cloud",
+        GMAIL_CREDENTIALS_PATH=str(credentials_path),
+    )
+
+    resp = client.get("/api/settings")
+
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["gmail_redirect_uri"] == "https://kplus.mxlabs.cloud/gmail/oauth2/callback"
+    assert payload["gmail_oauth_client_id"] == "12345678...eusercontent.com"
+    assert "do-not-show" not in resp.text
 
 
 @pytest.mark.asyncio
