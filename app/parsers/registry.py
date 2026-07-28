@@ -4,6 +4,7 @@ import logging
 from app.parsers.base import BaseParser, Transaction
 from app.parsers.kbank.parser import KBankParser
 from app.parsers.krungsri.parser import KrungsriParser
+from app.parsers.lhbank.parser import LHBankParser
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ class ParserRegistry:
         self.parsers: dict[str, BaseParser] = {
             "kasikornbank": self._default_parser,
             "krungsri": KrungsriParser(),
+            "lhbank": LHBankParser(),
             # Future: "scb": SCBParser(), "ktb": KTBParser(), etc.
         }
 

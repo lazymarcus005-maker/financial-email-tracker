@@ -1,7 +1,7 @@
 # Financial Email Tracker Config
 
 # Gmail
-GMAIL_QUERY: "from:(KPLUS@kasikornbank.com OR admin@krungsri.com) newer_than:2d"
+GMAIL_QUERY: "from:(KPLUS@kasikornbank.com OR admin@krungsri.com OR scbeasynet@scb.co.th OR LHBYou@lhbank.co.th) newer_than:2d"
 GMAIL_CREDENTIALS_PATH: "secrets/credentials.json"
 GMAIL_TOKEN_PATH: "secrets/token.json"
 
