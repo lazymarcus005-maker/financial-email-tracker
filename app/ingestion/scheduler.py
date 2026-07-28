@@ -2,6 +2,8 @@
 
 import asyncio
 import logging
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -28,6 +30,29 @@ def _build_engine(settings: Settings) -> CategoryEngine:
         ollama_base_url=settings.OLLAMA_BASE_URL,
         ollama_model=settings.OLLAMA_MODEL,
     )
+
+
+def next_scheduled_run(settings: Settings, now: datetime | None = None) -> datetime | None:
+    """The next SCHEDULE slot strictly after `now`, wrapping to tomorrow if needed."""
+    if not settings.SCHEDULE:
+        return None
+
+    tz = ZoneInfo(settings.TIMEZONE)
+    now = now.astimezone(tz) if now else datetime.now(tz)
+    today = now.date()
+
+    todays_slots = []
+    for time_str in settings.SCHEDULE:
+        hour, minute = (int(part) for part in time_str.split(":"))
+        todays_slots.append(datetime(today.year, today.month, today.day, hour, minute, tzinfo=tz))
+
+    upcoming_today = [slot for slot in todays_slots if slot > now]
+    if upcoming_today:
+        return min(upcoming_today)
+
+    tomorrow = today + timedelta(days=1)
+    hour, minute = (int(part) for part in settings.SCHEDULE[0].split(":"))
+    return datetime(tomorrow.year, tomorrow.month, tomorrow.day, hour, minute, tzinfo=tz)
 
 
 def run_ingestion_job(settings: Settings) -> dict | None:
