@@ -1,12 +1,12 @@
-<div id="transaction-actions" class="card mb-6">
-    <h2 class="text-sm font-medium text-neutral-900 mb-3">Actions</h2>
+<div id="transaction-actions" class="card card-body mb-6">
+    <h2 class="text-sm font-medium text-foreground mb-3">Actions</h2>
     <div class="flex flex-wrap items-end gap-3">
         <div>
-            <label for="category-input" class="block text-xs text-neutral-500 mb-1">Category</label>
+            <label for="category-input" class="label">Category</label>
             <input type="text" id="category-input" value="{{ t.category or '' }}" class="input">
         </div>
         <button
-            class="px-3 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700"
+            class="btn btn-primary btn-md"
             hx-patch="/api/transactions/{{ t.id }}"
             hx-target="#transaction-actions"
             hx-swap="outerHTML"
@@ -16,7 +16,7 @@
 
         {% if t.status == 'ignored' %}
         <button
-            class="px-3 py-2 rounded-lg border border-neutral-300 text-sm font-medium hover:bg-neutral-100"
+            class="btn btn-outline btn-md"
             hx-patch="/api/transactions/{{ t.id }}"
             hx-target="#transaction-actions"
             hx-swap="outerHTML"
@@ -25,7 +25,7 @@
         >Unignore</button>
         {% else %}
         <button
-            class="px-3 py-2 rounded-lg border border-neutral-300 text-sm font-medium hover:bg-neutral-100"
+            class="btn btn-outline btn-md"
             hx-patch="/api/transactions/{{ t.id }}"
             hx-target="#transaction-actions"
             hx-swap="outerHTML"
@@ -35,7 +35,7 @@
         {% endif %}
 
         <button
-            class="px-3 py-2 rounded-lg border border-neutral-300 text-sm font-medium hover:bg-neutral-100"
+            class="btn btn-outline btn-md"
             hx-post="/api/reparse/{{ t.id }}"
             hx-target="#transaction-actions"
             hx-swap="outerHTML"
@@ -43,7 +43,7 @@
         >Reparse</button>
 
         <button
-            class="px-3 py-2 rounded-lg border border-red-300 text-sm font-medium text-red-700 hover:bg-red-50"
+            class="btn btn-destructive-outline btn-md"
             hx-delete="/api/transactions/{{ t.id }}"
             hx-target="body"
             hx-swap="innerHTML"

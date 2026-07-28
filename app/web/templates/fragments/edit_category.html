@@ -10,14 +10,14 @@
         type="text"
         name="category"
         value="{{ t.category or '' }}"
-        class="input text-xs py-0.5 px-1.5 w-32 focus-visible:ring-2 focus-visible:ring-neutral-400"
+        class="input h-7 w-28 px-2 py-0 text-xs"
         list="categories-{{ t.id }}"
         autofocus
     >
-    <button type="submit" class="px-1.5 py-0.5 rounded bg-neutral-900 text-white text-xs hover:bg-neutral-700 transition-colors duration-150">Save</button>
+    <button type="submit" class="btn btn-primary btn-sm !h-7 !px-2">Save</button>
     <button
         type="button"
-        class="px-1.5 py-0.5 rounded border border-neutral-300 text-xs hover:bg-neutral-100 transition-colors duration-150"
+        class="btn btn-outline btn-sm !h-7 !px-2"
         hx-get="/transactions"
         hx-target="#transactions-table"
         hx-select="#transactions-table"

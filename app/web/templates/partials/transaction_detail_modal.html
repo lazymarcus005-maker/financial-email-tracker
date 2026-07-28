@@ -1,7 +1,10 @@
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onclick="if (event.target === this) closeModal()">
-    <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 relative">
-        <button type="button" class="absolute top-3 right-3 text-neutral-400 hover:text-neutral-700 text-xl leading-none" onclick="closeModal()" aria-label="Close">&times;</button>
-        <h2 class="text-lg font-semibold text-neutral-900 mb-4">Transaction #{{ t.id }}</h2>
+<div class="dialog-overlay" onclick="if (event.target === this) closeModal()">
+    <div class="dialog-content">
+        <div class="dialog-handle"></div>
+        <button type="button" class="dialog-close" onclick="closeModal()" aria-label="Close">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <h2 class="text-lg font-semibold text-foreground mb-4">Transaction #{{ t.id }}</h2>
         {% include "partials/transaction_detail_body.html" %}
     </div>
 </div>

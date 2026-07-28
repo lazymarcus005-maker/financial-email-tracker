@@ -3,12 +3,12 @@
 {% block title %}Transactions - Financial Email Tracker{% endblock %}
 
 {% block content %}
-<h1 class="text-xl font-semibold text-neutral-900 mb-6">Transactions</h1>
+<h1 class="text-xl font-semibold text-foreground mb-6">Transactions</h1>
 
 <form
     method="get"
     action="/transactions"
-    class="card mb-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end"
+    class="card card-body mb-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end"
     hx-get="/transactions"
     hx-trigger="input changed delay:300ms, search changed delay:300ms"
     hx-target="#transactions-table"
@@ -17,16 +17,16 @@
     hx-swap="outerHTML"
 >
     <div>
-        <label for="filter-date-from" class="block text-xs text-neutral-500 mb-1">Date From</label>
-        <input type="date" id="filter-date-from" name="date_from" value="{{ filters.date_from }}" class="input focus-visible:ring-2 focus-visible:ring-neutral-400">
+        <label for="filter-date-from" class="label">Date From</label>
+        <input type="date" id="filter-date-from" name="date_from" value="{{ filters.date_from }}" class="input">
     </div>
     <div>
-        <label for="filter-date-to" class="block text-xs text-neutral-500 mb-1">Date To</label>
-        <input type="date" id="filter-date-to" name="date_to" value="{{ filters.date_to }}" class="input focus-visible:ring-2 focus-visible:ring-neutral-400">
+        <label for="filter-date-to" class="label">Date To</label>
+        <input type="date" id="filter-date-to" name="date_to" value="{{ filters.date_to }}" class="input">
     </div>
     <div>
-        <label for="filter-category" class="block text-xs text-neutral-500 mb-1">Category</label>
-        <select id="filter-category" name="category" class="input focus-visible:ring-2 focus-visible:ring-neutral-400">
+        <label for="filter-category" class="label">Category</label>
+        <select id="filter-category" name="category" class="input">
             <option value="">All</option>
             {% for cat in categories %}
             <option value="{{ cat }}" {% if filters.category == cat %}selected{% endif %}>{{ cat }}</option>
@@ -34,8 +34,8 @@
         </select>
     </div>
     <div>
-        <label for="filter-type" class="block text-xs text-neutral-500 mb-1">Type</label>
-        <select id="filter-type" name="transaction_type" class="input focus-visible:ring-2 focus-visible:ring-neutral-400">
+        <label for="filter-type" class="label">Type</label>
+        <select id="filter-type" name="transaction_type" class="input">
             <option value="">All</option>
             {% for t in types %}
             <option value="{{ t }}" {% if filters.transaction_type == t %}selected{% endif %}>{{ t }}</option>
@@ -43,8 +43,8 @@
         </select>
     </div>
     <div>
-        <label for="filter-direction" class="block text-xs text-neutral-500 mb-1">Direction</label>
-        <select id="filter-direction" name="direction" class="input focus-visible:ring-2 focus-visible:ring-neutral-400">
+        <label for="filter-direction" class="label">Direction</label>
+        <select id="filter-direction" name="direction" class="input">
             <option value="" {% if filters.direction == '' %}selected{% endif %}>Any</option>
             <option value="in" {% if filters.direction == 'in' %}selected{% endif %}>In</option>
             <option value="out" {% if filters.direction == 'out' %}selected{% endif %}>Out</option>
@@ -53,12 +53,12 @@
         </select>
     </div>
     <div>
-        <label for="filter-search" class="block text-xs text-neutral-500 mb-1">Search</label>
-        <input type="text" id="filter-search" name="search" value="{{ filters.search }}" class="input focus-visible:ring-2 focus-visible:ring-neutral-400" placeholder="Search counterparty/description...">
+        <label for="filter-search" class="label">Search</label>
+        <input type="text" id="filter-search" name="search" value="{{ filters.search }}" class="input" placeholder="Search counterparty/description...">
     </div>
     <div class="col-span-2 sm:col-span-3 lg:col-span-6 flex gap-2">
-        <button type="submit" class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2">Filter</button>
-        <a href="/transactions" class="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-100 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-neutral-400">Clear</a>
+        <button type="submit" class="btn btn-primary btn-md">Filter</button>
+        <a href="/transactions" class="btn btn-outline btn-md">Clear</a>
     </div>
 </form>
 
@@ -66,7 +66,7 @@
 {% set new_dir = 'asc' if sort == col and sort_dir == 'desc' else 'desc' %}
 <a
     href="?date_from={{ filters.date_from | urlencode }}&date_to={{ filters.date_to | urlencode }}&category={{ filters.category | urlencode }}&transaction_type={{ filters.transaction_type | urlencode }}&direction={{ filters.direction | urlencode }}&search={{ filters.search | urlencode }}&sort={{ col }}&dir={{ new_dir }}"
-    class="inline-flex items-center gap-1 hover:text-neutral-900 transition-colors duration-150"
+    class="inline-flex items-center gap-1 hover:text-foreground transition-colors"
     hx-get="/transactions?date_from={{ filters.date_from | urlencode }}&date_to={{ filters.date_to | urlencode }}&category={{ filters.category | urlencode }}&transaction_type={{ filters.transaction_type | urlencode }}&direction={{ filters.direction | urlencode }}&search={{ filters.search | urlencode }}&sort={{ col }}&dir={{ new_dir }}"
     hx-target="#transactions-table"
     hx-push-url="true"
@@ -81,42 +81,54 @@
 {% endmacro %}
 
 <div id="transactions-table">
-    <div class="card p-0 overflow-x-auto">
-        <table class="min-w-full text-sm zebra-table">
+    {% if not items %}
+    <div class="card">
+        {% if filters.date_from or filters.date_to or filters.category or filters.transaction_type or filters.direction or filters.search %}
+        {% set clear_url = "/transactions" %}
+        {% include "partials/empty_state_no_match.html" %}
+        {% else %}
+        {% set title = "No transactions yet" %}
+        {% set message = "Run your first ingestion to get started." %}
+        {% include "partials/empty_state_first_run.html" %}
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="table-wrap">
+        <table class="table-base zebra-table">
             <thead>
-                <tr class="text-left text-neutral-500 border-b border-neutral-200">
-                    <th class="px-4 py-3 font-medium">{{ sort_link('Date', 'occurred_at') }}</th>
-                    <th class="px-4 py-3 font-medium">{{ sort_link('Counterparty', 'counterparty') }}</th>
-                    <th class="px-4 py-3 font-medium">Description</th>
-                    <th class="px-4 py-3 font-medium">{{ sort_link('Type', 'transaction_type') }}</th>
-                    <th class="px-4 py-3 font-medium">{{ sort_link('Direction', 'direction') }}</th>
-                    <th class="px-4 py-3 font-medium text-right">{{ sort_link('Amount', 'amount') }}</th>
-                    <th class="px-4 py-3 font-medium">{{ sort_link('Category', 'category') }}</th>
-                    <th class="px-4 py-3 font-medium">Status</th>
+                <tr>
+                    <th>{{ sort_link('Date', 'occurred_at') }}</th>
+                    <th>{{ sort_link('Counterparty', 'counterparty') }}</th>
+                    <th>Description</th>
+                    <th>{{ sort_link('Type', 'transaction_type') }}</th>
+                    <th>{{ sort_link('Direction', 'direction') }}</th>
+                    <th class="text-right">{{ sort_link('Amount', 'amount') }}</th>
+                    <th>{{ sort_link('Category', 'category') }}</th>
+                    <th>Status</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in items %}
                 <tr
-                    class="border-b border-neutral-100 hover:bg-neutral-50 transition-colors duration-150 cursor-pointer"
+                    class="cursor-pointer"
                     data-href="/transactions/{{ item.id }}"
                     tabindex="0"
                     aria-label="View transaction {{ item.id }}"
                 >
-                    <td class="px-4 py-3 whitespace-nowrap">
-                        <div class="text-neutral-900">{{ item.occurred_date or '-' }}</div>
-                        <div class="text-xs text-neutral-500">{{ item.occurred_time or item.occurred_at }}</div>
+                    <td class="whitespace-nowrap">
+                        <div class="text-foreground">{{ item.occurred_date or '-' }}</div>
+                        <div class="text-xs text-muted-foreground">{{ item.occurred_time or item.occurred_at }}</div>
                     </td>
-                    <td class="px-4 py-3">{% if item.counterparty and item.counterparty != '-' %}<span lang="th" class="font-thai">{{ item.counterparty }}</span>{% else %}-{% endif %}</td>
-                    <td class="px-4 py-3">{% if item.description and item.description != '-' %}<span lang="th" class="font-thai">{{ item.description }}</span>{% else %}-{% endif %}</td>
-                    <td class="px-4 py-3">{{ item.transaction_type or '-' }}</td>
-                    <td class="px-4 py-3">{{ item.direction }}</td>
-                    <td class="px-4 py-3 text-right font-medium tabular-nums {% if item.direction == 'in' %}text-green-600{% elif item.direction == 'out' %}text-red-600{% else %}text-neutral-700{% endif %}">
+                    <td>{% if item.counterparty and item.counterparty != '-' %}<span lang="th" class="font-thai">{{ item.counterparty }}</span>{% else %}-{% endif %}</td>
+                    <td>{% if item.description and item.description != '-' %}<span lang="th" class="font-thai">{{ item.description }}</span>{% else %}-{% endif %}</td>
+                    <td>{{ item.transaction_type or '-' }}</td>
+                    <td>{{ item.direction }}</td>
+                    <td class="text-right font-medium tabular-nums {% if item.direction == 'in' %}text-green-600{% elif item.direction == 'out' %}text-red-600{% else %}text-foreground{% endif %}">
                         ฿{{ '{:,.2f}'.format(item.amount) }}
                     </td>
-                    <td class="px-4 py-3">
+                    <td>
                         <span
-                            class="badge {% if item.category and item.category != 'Uncategorized' %}badge-income{% else %}badge-uncategorized{% endif %} cursor-pointer hover:opacity-80 transition-opacity duration-150"
+                            class="badge {% if item.category and item.category != 'Uncategorized' %}badge-income{% else %}badge-uncategorized{% endif %} cursor-pointer hover:opacity-80 transition-opacity"
                             hx-get="/transactions/{{ item.id }}/edit-category"
                             hx-target="closest td"
                             hx-swap="innerHTML"
@@ -124,7 +136,7 @@
                             title="Click to edit category"
                         >{{ item.category or 'Uncategorized' }}</span>
                     </td>
-                    <td class="px-4 py-3 relative">
+                    <td class="relative">
                         {{ item.parse_status }}
                         <button
                             type="button"
@@ -136,35 +148,25 @@
                         ></button>
                     </td>
                 </tr>
-                {% else %}
-                <tr><td colspan="8" class="px-4 py-6 text-center text-neutral-500">
-                    {% if filters.date_from or filters.date_to or filters.category or filters.transaction_type or filters.direction or filters.search %}
-                    {% set clear_url = "/transactions" %}
-                    {% include "partials/empty_state_no_match.html" %}
-                    {% else %}
-                    {% set title = "No transactions yet" %}
-                    {% set message = "Run your first ingestion to get started." %}
-                    {% include "partials/empty_state_first_run.html" %}
-                    {% endif %}
-                </td></tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    {% endif %}
 
     {% set qs_base = 'date_from=' ~ (filters.date_from|urlencode) ~ '&date_to=' ~ (filters.date_to|urlencode) ~ '&category=' ~ (filters.category|urlencode) ~ '&transaction_type=' ~ (filters.transaction_type|urlencode) ~ '&direction=' ~ (filters.direction|urlencode) ~ '&search=' ~ (filters.search|urlencode) ~ '&page_size=' ~ page_size ~ '&sort=' ~ sort ~ '&dir=' ~ sort_dir %}
     <div class="flex items-center justify-between mt-4 text-sm">
-        <div class="text-neutral-500">Page {{ page }} of {{ total_pages }} ({{ total }} total)</div>
+        <div class="text-muted-foreground">Page {{ page }} of {{ total_pages }} ({{ total }} total)</div>
         <div class="flex gap-2">
             {% if page > 1 %}
-            <a href="/transactions?{{ qs_base }}&page={{ page - 1 }}" class="px-3 py-1.5 rounded-md border border-neutral-300 hover:bg-neutral-100 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-neutral-400">Prev</a>
+            <a href="/transactions?{{ qs_base }}&page={{ page - 1 }}" class="btn btn-outline btn-sm">Prev</a>
             {% else %}
-            <span class="px-3 py-1.5 rounded-md border border-neutral-200 text-neutral-400">Prev</span>
+            <span class="btn btn-outline btn-sm opacity-50 pointer-events-none">Prev</span>
             {% endif %}
             {% if page < total_pages %}
-            <a href="/transactions?{{ qs_base }}&page={{ page + 1 }}" class="px-3 py-1.5 rounded-md border border-neutral-300 hover:bg-neutral-100 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-neutral-400">Next</a>
+            <a href="/transactions?{{ qs_base }}&page={{ page + 1 }}" class="btn btn-outline btn-sm">Next</a>
             {% else %}
-            <span class="px-3 py-1.5 rounded-md border border-neutral-200 text-neutral-400">Next</span>
+            <span class="btn btn-outline btn-sm opacity-50 pointer-events-none">Next</span>
             {% endif %}
         </div>
     </div>

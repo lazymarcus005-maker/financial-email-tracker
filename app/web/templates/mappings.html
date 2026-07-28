@@ -3,10 +3,10 @@
 {% block title %}Mappings - Financial Email Tracker{% endblock %}
 
 {% block content %}
-<h1 class="text-xl font-semibold text-neutral-900 mb-6">Counterparty Mappings</h1>
+<h1 class="text-xl font-semibold text-foreground mb-6">Counterparty Mappings</h1>
 
-<div class="card mb-6">
-    <h2 class="text-sm font-medium text-neutral-900 mb-3">Add Mapping</h2>
+<div class="card card-body mb-6">
+    <h2 class="text-sm font-medium text-foreground mb-3">Add Mapping</h2>
     <form
         class="flex flex-wrap items-end gap-3"
         hx-post="/api/mappings"
@@ -16,51 +16,48 @@
         hx-on::after-request="document.getElementById('new-counterparty').value=''; document.getElementById('new-category').value=''"
     >
         <div>
-            <label class="block text-xs text-neutral-500 mb-1">Counterparty</label>
-            <input type="text" id="new-counterparty" name="counterparty" class="input focus-visible:ring-2 focus-visible:ring-neutral-400" list="counterparties" required>
+            <label class="label">Counterparty</label>
+            <input type="text" id="new-counterparty" name="counterparty" class="input" list="counterparties" required>
         </div>
         <div>
-            <label class="block text-xs text-neutral-500 mb-1">Category</label>
-            <input type="text" id="new-category" name="category" class="input focus-visible:ring-2 focus-visible:ring-neutral-400" list="categories" required>
+            <label class="label">Category</label>
+            <input type="text" id="new-category" name="category" class="input" list="categories" required>
         </div>
-        <button
-            type="submit"
-            class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-neutral-500 focus-visible:ring-offset-2"
-        >Add Mapping</button>
+        <button type="submit" class="btn btn-primary btn-md">Add Mapping</button>
     </form>
 </div>
 
-<div class="card p-0 overflow-x-auto">
-    <table class="min-w-full text-sm zebra-table">
+{% if not items %}
+<div class="card" id="mappings-empty-row">
+    {% if request.query_params %}
+    {% set clear_url = "/mappings" %}
+    {% include "partials/empty_state_no_match.html" %}
+    {% else %}
+    {% set title = "No mappings yet" %}
+    {% set message = "Add your first counterparty-to-category mapping above." %}
+    {% include "partials/empty_state_first_run.html" %}
+    {% endif %}
+</div>
+{% else %}
+<div class="table-wrap">
+    <table class="table-base zebra-table">
         <thead>
-            <tr class="text-left text-neutral-500 border-b border-neutral-200">
-                <th class="px-4 py-3 font-medium">Counterparty</th>
-                <th class="px-4 py-3 font-medium">Category</th>
-                <th class="px-4 py-3 font-medium">Source</th>
-                <th class="px-4 py-3 font-medium">Created</th>
-                <th class="px-4 py-3 font-medium">Actions</th>
+            <tr>
+                <th>Counterparty</th>
+                <th>Category</th>
+                <th>Source</th>
+                <th>Created</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody id="mappings-tbody">
             {% for item in items %}
             {% include "partials/mapping_row.html" %}
-            {% else %}
-            <tr id="mappings-empty-row">
-                <td colspan="5" class="px-4 py-6 text-center text-neutral-500">
-                    {% if request.query_params %}
-                    {% set clear_url = "/mappings" %}
-                    {% include "partials/empty_state_no_match.html" %}
-                    {% else %}
-                    {% set title = "No mappings yet" %}
-                    {% set message = "Add your first counterparty-to-category mapping above." %}
-                    {% include "partials/empty_state_first_run.html" %}
-                    {% endif %}
-                </td>
-            </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+{% endif %}
 
 <datalist id="categories">
     {% for category in category_options %}

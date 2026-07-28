@@ -1,5 +1,5 @@
-<div class="card">
-    <h3 class="text-sm font-medium text-neutral-900 mb-3">Categorize as Transaction</h3>
+<div class="card card-body">
+    <h3 class="text-sm font-medium text-foreground mb-3">Categorize as Transaction</h3>
     <form
         hx-post="/api/unknown/{{ item.id }}/promote"
         hx-target="#promote-form-{{ item.id }}"
@@ -7,11 +7,11 @@
         class="grid grid-cols-1 sm:grid-cols-2 gap-3"
     >
         <div>
-            <label class="block text-xs text-neutral-500 mb-1">Transaction Type</label>
+            <label class="label">Transaction Type</label>
             <input type="text" name="transaction_type" required class="input" list="types-{{ item.id }}">
         </div>
         <div>
-            <label class="block text-xs text-neutral-500 mb-1">Direction</label>
+            <label class="label">Direction</label>
             <select name="direction" required class="input">
                 <option value="out">Out</option>
                 <option value="in">In</option>
@@ -20,7 +20,7 @@
             </select>
         </div>
         <div>
-            <label class="block text-xs text-neutral-500 mb-1">Status</label>
+            <label class="label">Status</label>
             <select name="status" required class="input">
                 <option value="success">Success</option>
                 <option value="failed">Failed</option>
@@ -30,35 +30,35 @@
             </select>
         </div>
         <div>
-            <label class="block text-xs text-neutral-500 mb-1">Occurred At</label>
+            <label class="label">Occurred At</label>
             <input type="datetime-local" name="occurred_at" required value="{{ (item.received_at or item.created_at or '').replace(' ', 'T')[:16] }}" class="input">
         </div>
         <div>
-            <label class="block text-xs text-neutral-500 mb-1">Amount</label>
+            <label class="label">Amount</label>
             <input type="number" step="0.01" name="amount" required value="{{ item.amount if item.amount is not none else '' }}" class="input">
         </div>
         <div>
-            <label class="block text-xs text-neutral-500 mb-1">Category</label>
+            <label class="label">Category</label>
             <input type="text" name="category" required class="input" list="categories-{{ item.id }}">
         </div>
         <div>
-            <label class="block text-xs text-neutral-500 mb-1">Fee</label>
+            <label class="label">Fee</label>
             <input type="number" step="0.01" name="fee" value="0" class="input">
         </div>
         <div>
-            <label class="block text-xs text-neutral-500 mb-1">Available Balance</label>
+            <label class="label">Available Balance</label>
             <input type="number" step="0.01" name="available_balance" class="input">
         </div>
         <div>
-            <label class="block text-xs text-neutral-500 mb-1">Counterparty</label>
+            <label class="label">Counterparty</label>
             <input type="text" name="counterparty" class="input">
         </div>
         <div>
-            <label class="block text-xs text-neutral-500 mb-1">Description</label>
+            <label class="label">Description</label>
             <input type="text" name="description" class="input">
         </div>
         <div class="sm:col-span-2">
-            <button type="submit" class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700 transition-colors duration-150">Create Transaction</button>
+            <button type="submit" class="btn btn-primary btn-md">Create Transaction</button>
         </div>
     </form>
     <datalist id="types-{{ item.id }}">

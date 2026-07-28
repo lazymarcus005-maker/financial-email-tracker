@@ -1,13 +1,14 @@
-<tr id="mapping-row-{{ item.id }}" class="border-b border-neutral-100">
-    <td class="px-4 py-3">{{ item.counterparty }}</td>
-    <td class="px-4 py-3">
+<tr id="mapping-row-{{ item.id }}">
+    <td>{{ item.counterparty }}</td>
+    <td>
         <input type="text" id="category-{{ item.id }}" value="{{ item.category }}" class="input" list="categories">
     </td>
-    <td class="px-4 py-3">{{ item.source or '-' }}</td>
-    <td class="px-4 py-3 whitespace-nowrap">{{ item.created_at }}</td>
-    <td class="px-4 py-3 whitespace-nowrap">
+    <td>{{ item.source or '-' }}</td>
+    <td class="whitespace-nowrap">{{ item.created_at }}</td>
+    <td class="whitespace-nowrap">
+        <div class="flex flex-wrap gap-1.5">
         <button
-            class="px-2 py-1 rounded-md border border-neutral-300 text-xs hover:bg-neutral-100"
+            class="btn btn-outline btn-sm"
             hx-patch="/api/mappings/{{ item.id }}"
             hx-target="#mapping-row-{{ item.id }}"
             hx-swap="outerHTML"
@@ -15,12 +16,13 @@
             hx-disabled-elt="this"
         >Save</button>
         <button
-            class="px-2 py-1 rounded-md border border-red-300 text-red-600 text-xs hover:bg-red-50"
+            class="btn btn-destructive-outline btn-sm"
             hx-delete="/api/mappings/{{ item.id }}"
             hx-target="#mapping-row-{{ item.id }}"
             hx-swap="outerHTML"
             hx-confirm="Delete this mapping?"
             hx-disabled-elt="this"
         >Delete</button>
+        </div>
     </td>
 </tr>

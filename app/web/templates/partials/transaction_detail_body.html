@@ -1,7 +1,7 @@
 {% if t.warnings %}
-<div class="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
-    <div class="text-sm font-medium text-amber-800 mb-1">Warnings</div>
-    <ul class="list-disc list-inside text-sm text-amber-700">
+<div class="alert alert-warning mb-6">
+    <div class="alert-title">Warnings</div>
+    <ul class="list-disc list-inside alert-description">
         {% for w in t.warnings %}
         <li>{{ w }}</li>
         {% endfor %}
@@ -9,53 +9,53 @@
 </div>
 {% endif %}
 
-<div class="card mb-6">
+<div class="card card-body mb-6">
     <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
         <div>
-            <dt class="text-xs text-neutral-500">Transaction Type</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.transaction_type or '-' }}</dd>
+            <dt class="text-xs text-muted-foreground">Transaction Type</dt>
+            <dd class="text-sm text-foreground mt-0.5">{{ t.transaction_type or '-' }}</dd>
         </div>
         <div>
-            <dt class="text-xs text-neutral-500">Direction</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.direction }}</dd>
+            <dt class="text-xs text-muted-foreground">Direction</dt>
+            <dd class="text-sm text-foreground mt-0.5">{{ t.direction }}</dd>
         </div>
         <div>
-            <dt class="text-xs text-neutral-500">Status</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.status }}</dd>
+            <dt class="text-xs text-muted-foreground">Status</dt>
+            <dd class="text-sm text-foreground mt-0.5">{{ t.status }}</dd>
         </div>
         <div>
-            <dt class="text-xs text-neutral-500">Occurred At</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.occurred_at | thai_date if t.occurred_at else '-' }}</dd>
+            <dt class="text-xs text-muted-foreground">Occurred At</dt>
+            <dd class="text-sm text-foreground mt-0.5">{{ t.occurred_at | thai_date if t.occurred_at else '-' }}</dd>
         </div>
         <div>
-            <dt class="text-xs text-neutral-500">Amount</dt>
-            <dd class="text-sm mt-0.5 font-medium tabular-nums {% if t.direction == 'in' %}text-green-600{% elif t.direction == 'out' %}text-red-600{% else %}text-neutral-900{% endif %}">฿{{ '{:,.2f}'.format(t.amount) }}</dd>
+            <dt class="text-xs text-muted-foreground">Amount</dt>
+            <dd class="text-sm mt-0.5 font-medium tabular-nums {% if t.direction == 'in' %}text-green-600{% elif t.direction == 'out' %}text-red-600{% else %}text-foreground{% endif %}">฿{{ '{:,.2f}'.format(t.amount) }}</dd>
         </div>
         <div>
-            <dt class="text-xs text-neutral-500">Fee</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5 tabular-nums">{% if t.fee is not none %}฿{{ '{:,.2f}'.format(t.fee) }}{% else %}-{% endif %}</dd>
+            <dt class="text-xs text-muted-foreground">Fee</dt>
+            <dd class="text-sm text-foreground mt-0.5 tabular-nums">{% if t.fee is not none %}฿{{ '{:,.2f}'.format(t.fee) }}{% else %}-{% endif %}</dd>
         </div>
         <div>
-            <dt class="text-xs text-neutral-500">Available Balance</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5 tabular-nums">{% if t.available_balance is not none %}฿{{ '{:,.2f}'.format(t.available_balance) }}{% else %}-{% endif %}</dd>
+            <dt class="text-xs text-muted-foreground">Available Balance</dt>
+            <dd class="text-sm text-foreground mt-0.5 tabular-nums">{% if t.available_balance is not none %}฿{{ '{:,.2f}'.format(t.available_balance) }}{% else %}-{% endif %}</dd>
         </div>
         <div>
-            <dt class="text-xs text-neutral-500">Bank</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.bank or '-' }}</dd>
+            <dt class="text-xs text-muted-foreground">Bank</dt>
+            <dd class="text-sm text-foreground mt-0.5">{{ t.bank or '-' }}</dd>
         </div>
         <div>
-            <dt class="text-xs text-neutral-500">Counterparty</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5">{% if t.counterparty and t.counterparty != '-' %}<span lang="th" class="font-thai">{{ t.counterparty }}</span>{% else %}-{% endif %}</dd>
+            <dt class="text-xs text-muted-foreground">Counterparty</dt>
+            <dd class="text-sm text-foreground mt-0.5">{% if t.counterparty and t.counterparty != '-' %}<span lang="th" class="font-thai">{{ t.counterparty }}</span>{% else %}-{% endif %}</dd>
         </div>
         <div class="sm:col-span-2">
-            <dt class="text-xs text-neutral-500">Description</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5">{% if t.description and t.description != '-' %}<span lang="th" class="font-thai">{{ t.description }}</span>{% else %}-{% endif %}</dd>
+            <dt class="text-xs text-muted-foreground">Description</dt>
+            <dd class="text-sm text-foreground mt-0.5">{% if t.description and t.description != '-' %}<span lang="th" class="font-thai">{{ t.description }}</span>{% else %}-{% endif %}</dd>
         </div>
         <div>
-            <dt class="text-xs text-neutral-500">Category</dt>
+            <dt class="text-xs text-muted-foreground">Category</dt>
             <dd class="text-sm mt-0.5">
                 <span
-                    class="badge {% if t.category and t.category != 'Uncategorized' %}badge-income{% else %}badge-uncategorized{% endif %} cursor-pointer hover:opacity-80 transition-opacity duration-150"
+                    class="badge {% if t.category and t.category != 'Uncategorized' %}badge-income{% else %}badge-uncategorized{% endif %} cursor-pointer hover:opacity-80 transition-opacity"
                     hx-get="/transactions/{{ t.id }}/edit-category"
                     hx-target="closest dd"
                     hx-swap="innerHTML"
@@ -65,55 +65,57 @@
             </dd>
         </div>
         <div>
-            <dt class="text-xs text-neutral-500">Category Source</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.category_source or '-' }}</dd>
+            <dt class="text-xs text-muted-foreground">Category Source</dt>
+            <dd class="text-sm text-foreground mt-0.5">{{ t.category_source or '-' }}</dd>
         </div>
         <div>
-            <dt class="text-xs text-neutral-500">Parse Status</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.parse_status }}</dd>
+            <dt class="text-xs text-muted-foreground">Parse Status</dt>
+            <dd class="text-sm text-foreground mt-0.5">{{ t.parse_status }}</dd>
         </div>
         <div>
-            <dt class="text-xs text-neutral-500">Parse Confidence</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5 tabular-nums">{{ t.parse_confidence if t.parse_confidence is not none else '-' }}</dd>
+            <dt class="text-xs text-muted-foreground">Parse Confidence</dt>
+            <dd class="text-sm text-foreground mt-0.5 tabular-nums">{{ t.parse_confidence if t.parse_confidence is not none else '-' }}</dd>
         </div>
         <div>
-            <dt class="text-xs text-neutral-500">Parser Version</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5">{{ t.parser_version or '-' }}</dd>
+            <dt class="text-xs text-muted-foreground">Parser Version</dt>
+            <dd class="text-sm text-foreground mt-0.5">{{ t.parser_version or '-' }}</dd>
         </div>
     </dl>
 </div>
 
 {% include "partials/transaction_actions.html" %}
 
-<div class="card mb-6">
+<div class="card card-body mb-6">
     <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-medium text-neutral-900">Raw Email</h2>
+        <h2 class="text-sm font-medium text-foreground">Raw Email</h2>
         <button
             type="button"
-            class="px-3 py-1.5 rounded-lg border border-neutral-300 text-xs font-medium hover:bg-neutral-100 transition-colors duration-150"
+            class="btn btn-outline btn-sm"
             hx-get="/api/transactions/{{ t.id }}/raw-email"
             hx-target="#raw-email-{{ t.id }}"
             hx-swap="innerHTML"
         >View Raw Email</button>
     </div>
-    <div id="raw-email-{{ t.id }}" class="text-sm text-neutral-500">Click "View Raw Email" to load the original message from Gmail.</div>
+    <div id="raw-email-{{ t.id }}" class="text-sm text-muted-foreground">Click "View Raw Email" to load the original message from Gmail.</div>
 </div>
 
-<div class="card">
-    <h2 class="text-sm font-medium text-neutral-900 mb-3">Raw Fields</h2>
+<div class="card card-body">
+    <h2 class="text-sm font-medium text-foreground mb-3">Raw Fields</h2>
     {% if t.raw_fields %}
-    <table class="min-w-full text-sm zebra-table">
-        <tbody>
-            {% for key, value in t.raw_fields.items() %}
-            <tr class="border-b border-neutral-100">
-                <td class="px-3 py-2 font-medium text-neutral-500 whitespace-nowrap">{{ key }}</td>
-                <td class="px-3 py-2 text-neutral-900 break-all">{% if value %}<span lang="th" class="font-thai">{{ value }}</span>{% else %}-{% endif %}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="table-wrap">
+        <table class="table-base zebra-table">
+            <tbody>
+                {% for key, value in t.raw_fields.items() %}
+                <tr>
+                    <td class="font-medium text-muted-foreground whitespace-nowrap">{{ key }}</td>
+                    <td class="text-foreground break-all">{% if value %}<span lang="th" class="font-thai">{{ value }}</span>{% else %}-{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
-    <p class="text-sm text-neutral-500">No raw fields.</p>
+    <p class="text-sm text-muted-foreground">No raw fields.</p>
     {% endif %}
 </div>
 

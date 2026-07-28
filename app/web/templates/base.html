@@ -2,48 +2,51 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}Financial Email Tracker{% endblock %}</title>
     <link rel="stylesheet" href="/static/tailwind.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Sarabun:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/app.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, "Noto Sans Thai", "Sarabun", sans-serif; }
-        .font-thai { font-family: "Noto Sans Thai", "Sarabun", sans-serif; }
-    </style>
 </head>
-<body class="bg-neutral-50 text-neutral-900 min-h-screen">
-    <nav class="bg-white border-b border-neutral-200">
-        <div class="max-w-6xl mx-auto px-4">
-            <div class="flex items-center justify-between h-14">
-                <div class="flex items-center gap-6">
-                    <span class="font-semibold text-neutral-900">Financial Email Tracker</span>
-                    {% set current_user = request.state.current_user %}
-                    {% if current_user %}
-                    <div class="flex items-center gap-1">
-                        <a href="/" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Dashboard</a>
-                        <a href="/transactions" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path.startswith('/transactions') %}aria-current="page"{% endif %}>Transactions</a>
-                        <a href="/unknown" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path.startswith('/unknown') %}aria-current="page"{% endif %}>Unknown</a>
-                        <a href="/mappings" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path.startswith('/mappings') %}aria-current="page"{% endif %}>Mappings</a>
-                        <a href="/settings" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path.startswith('/settings') %}aria-current="page"{% endif %}>Settings</a>
-                        {% if current_user.role == 'admin' %}
-                        <a href="/users" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors duration-150" {% if request.url.path.startswith('/users') %}aria-current="page"{% endif %}>Users</a>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-                </div>
+<body class="min-h-screen bg-background text-foreground">
+    {% set current_user = request.state.current_user %}
+    {% set nav_items = [
+        ('/', 'Dashboard', 'home'),
+        ('/transactions', 'Transactions', 'list'),
+        ('/unknown', 'Unknown', 'help'),
+        ('/mappings', 'Mappings', 'tag'),
+        ('/settings', 'Settings', 'settings'),
+    ] %}
+    {% if current_user and current_user.role == 'admin' %}
+    {% set nav_items = nav_items + [('/users', 'Users', 'users')] %}
+    {% endif %}
+
+    <nav class="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
+        <div class="container flex h-14 items-center justify-between">
+            <div class="flex items-center gap-6 min-w-0">
+                <a href="/" class="font-semibold text-foreground truncate">Financial Email Tracker</a>
                 {% if current_user %}
-                <div class="flex items-center gap-3">
-                    <span class="hidden sm:inline text-sm text-neutral-500">{{ current_user.display_name }}</span>
-                    <form method="post" action="/logout">
-                        <button type="submit" class="px-3 py-2 rounded-md text-sm text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100">Logout</button>
-                    </form>
+                <div class="hidden sm:flex items-center gap-1">
+                    {% for href, label, icon in nav_items %}
+                    <a
+                        href="{{ href }}"
+                        class="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground aria-[current=page]:bg-accent aria-[current=page]:text-foreground"
+                        {% if (href == '/' and request.url.path == '/') or (href != '/' and request.url.path.startswith(href)) %}aria-current="page"{% endif %}
+                    >{{ label }}</a>
+                    {% endfor %}
                 </div>
                 {% endif %}
             </div>
+            {% if current_user %}
+            <div class="flex items-center gap-3">
+                <span class="hidden sm:inline text-sm text-muted-foreground truncate max-w-40">{{ current_user.display_name }}</span>
+                <form method="post" action="/logout">
+                    <button type="submit" class="btn btn-ghost btn-sm">Logout</button>
+                </form>
+            </div>
+            {% endif %}
         </div>
     </nav>
 
@@ -51,9 +54,39 @@
 
     <div id="modal-root"></div>
 
-    <main class="max-w-6xl mx-auto px-4 py-8">
+    <main class="container py-6 sm:py-8 {% if current_user %}pb-24 sm:pb-8{% endif %}">
         {% block content %}{% endblock %}
     </main>
+
+    {% if current_user %}
+    <nav
+        aria-label="Primary"
+        class="fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden"
+    >
+        {% for href, label, icon in nav_items %}
+        <a
+            href="{{ href }}"
+            class="flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:text-foreground"
+            {% if (href == '/' and request.url.path == '/') or (href != '/' and request.url.path.startswith(href)) %}aria-current="page"{% endif %}
+        >
+            {% if icon == 'home' %}
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 9v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9"/></svg>
+            {% elif icon == 'list' %}
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/></svg>
+            {% elif icon == 'help' %}
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.9.7c0 1.6-2.4 2-2.4 3.3"/><line x1="12" y1="17" x2="12" y2="17.01"/></svg>
+            {% elif icon == 'tag' %}
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="8" r="2.5"/><circle cx="17" cy="16" r="2.5"/><line x1="9" y1="9.5" x2="15" y2="14.5"/></svg>
+            {% elif icon == 'settings' %}
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="4" x2="6" y2="20"/><circle cx="6" cy="9" r="2"/><line x1="12" y1="4" x2="12" y2="20"/><circle cx="12" cy="15" r="2"/><line x1="18" y1="4" x2="18" y2="20"/><circle cx="18" cy="7" r="2"/></svg>
+            {% elif icon == 'users' %}
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="8" r="2.5"/><path d="M15 14c2.8.3 5 2.7 5 6"/></svg>
+            {% endif %}
+            <span>{{ label }}</span>
+        </a>
+        {% endfor %}
+    </nav>
+    {% endif %}
 
     <script src="/static/app.js" defer></script>
 </body>

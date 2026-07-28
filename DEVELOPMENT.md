@@ -62,6 +62,20 @@ Set `AUTH_SECRET_KEY` in `.env` for any long-running local instance where you
 care about session continuity. Without it, the app uses a process-local
 fallback secret and existing login cookies stop working after restart.
 
+## Frontend styling
+
+The web UI is server-rendered Jinja2 + HTMX, styled with Tailwind CSS using a
+shadcn/ui-inspired component layer (buttons, cards, badges, dialogs, etc.)
+defined in `app/web/static/tailwind-input.css`. There's no Node build step in
+Docker, so the compiled `app/web/static/tailwind.css` is committed to the repo
+and must be rebuilt manually after editing templates or the input CSS:
+
+```bash
+npm install       # once, installs the Tailwind CLI
+npm run build:css # recompiles tailwind.css from tailwind-input.css + templates
+# or: npm run watch:css   while iterating on templates
+```
+
 ## Code layout
 
 See the "Project Structure" section in [README.md](README.md). The KBank

@@ -1,5 +1,5 @@
 <span
-    class="badge {% if t.category and t.category != 'Uncategorized' %}badge-income{% else %}badge-uncategorized{% endif %} cursor-pointer hover:opacity-80 transition-opacity duration-150"
+    class="badge {% if t.category and t.category != 'Uncategorized' %}badge-income{% else %}badge-uncategorized{% endif %} cursor-pointer hover:opacity-80 transition-opacity"
     hx-get="/transactions/{{ t.id }}/edit-category"
     hx-target="closest td"
     hx-swap="innerHTML"

@@ -3,124 +3,121 @@
 {% block title %}Settings - Financial Email Tracker{% endblock %}
 
 {% block content %}
-<h1 class="text-xl font-semibold text-neutral-900 mb-6">Settings</h1>
+<h1 class="text-xl font-semibold text-foreground mb-6">Settings</h1>
 
 <div class="card mb-6">
-    <h2 class="text-sm font-medium text-neutral-900 mb-3">Gmail Account</h2>
-    <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-            <div class="text-sm text-neutral-900">
+    <div class="card-body">
+        <h2 class="text-sm font-medium text-foreground mb-3">Gmail Account</h2>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
                 <span class="badge {% if settings.gmail_connected %}badge-success{% else %}badge-warning{% endif %}">
                     {{ 'Connected' if settings.gmail_connected else 'Not connected' }}
                 </span>
             </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <a href="/gmail/connect" class="btn btn-primary btn-md">Connect Gmail</a>
+                {% if settings.gmail_connected %}
+                <button
+                    class="btn btn-outline btn-md"
+                    hx-post="/api/gmail/disconnect"
+                    hx-target="#gmail-status"
+                    hx-swap="outerHTML"
+                    hx-confirm="Disconnect Gmail for this user?"
+                >Disconnect</button>
+                {% endif %}
+            </div>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-            <a href="/gmail/connect" class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700">Connect Gmail</a>
-            {% if settings.gmail_connected %}
-            <button
-                class="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
-                hx-post="/api/gmail/disconnect"
-                hx-target="#gmail-status"
-                hx-swap="outerHTML"
-                hx-confirm="Disconnect Gmail for this user?"
-            >Disconnect</button>
-            {% endif %}
-        </div>
+        <div id="gmail-status" class="text-sm text-muted-foreground mt-3">Manual ingestion uses the Gmail account connected to your user.</div>
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mt-4 pt-4 border-t border-border">
+            <div>
+                <dt class="text-xs text-muted-foreground">Connected Gmail</dt>
+                <dd class="text-sm text-foreground mt-0.5 break-all">{{ settings.gmail_profile_email or '-' }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">OAuth Redirect URI</dt>
+                <dd class="text-sm text-foreground mt-0.5 break-all">{{ settings.gmail_redirect_uri }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">OAuth Client ID</dt>
+                <dd class="text-sm text-foreground mt-0.5 break-all">{{ settings.gmail_oauth_client_id }}</dd>
+            </div>
+        </dl>
     </div>
-    <div id="gmail-status" class="text-sm text-neutral-500 mt-3">Manual ingestion uses the Gmail account connected to your user.</div>
-    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mt-4 pt-4 border-t border-neutral-200">
-        <div>
-            <dt class="text-xs text-neutral-500">Connected Gmail</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5 break-all">{{ settings.gmail_profile_email or '-' }}</dd>
-        </div>
-        <div>
-            <dt class="text-xs text-neutral-500">OAuth Redirect URI</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5 break-all">{{ settings.gmail_redirect_uri }}</dd>
-        </div>
-        <div>
-            <dt class="text-xs text-neutral-500">OAuth Client ID</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5 break-all">{{ settings.gmail_oauth_client_id }}</dd>
-        </div>
-    </dl>
 </div>
 
 <div class="card">
-    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-        <div>
-            <dt class="text-xs text-neutral-500">Gmail Query</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5 break-all">{{ settings.gmail_query }}</dd>
-        </div>
-        <div>
-            <dt class="text-xs text-neutral-500">Database Path</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5 break-all">{{ settings.database_path }}</dd>
-        </div>
-        <div>
-            <dt class="text-xs text-neutral-500">Schedule</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5">{{ settings.schedule|join(', ') if settings.schedule else '-' }}</dd>
-        </div>
-        <div>
-            <dt class="text-xs text-neutral-500">Timezone</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5">{{ settings.timezone }}</dd>
-        </div>
-        <div>
-            <dt class="text-xs text-neutral-500">AI Enabled</dt>
-            <dd class="text-sm mt-0.5"><span class="badge {% if settings.ai_enabled %}badge-success{% else %}badge-neutral{% endif %}">{{ 'Yes' if settings.ai_enabled else 'No' }}</span></dd>
-        </div>
-        <div>
-            <dt class="text-xs text-neutral-500">Ollama Base URL</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5 break-all">{{ settings.ollama_base_url or '-' }}</dd>
-        </div>
-        <div>
-            <dt class="text-xs text-neutral-500">Ollama Model</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5">{{ settings.ollama_model or '-' }}</dd>
-        </div>
-        <div>
-            <dt class="text-xs text-neutral-500">Parser Version</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5">{{ settings.parser_version }}</dd>
-        </div>
-        <div>
-            <dt class="text-xs text-neutral-500">LINE Configured</dt>
-            <dd class="text-sm mt-0.5"><span class="badge {% if settings.line_configured %}badge-success{% else %}badge-neutral{% endif %}">{{ 'Yes' if settings.line_configured else 'No' }}</span></dd>
-        </div>
-        <div>
-            <dt class="text-xs text-neutral-500">Log Level</dt>
-            <dd class="text-sm text-neutral-900 mt-0.5">{{ settings.log_level }}</dd>
-        </div>
-    </dl>
+    <div class="card-body">
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+            <div>
+                <dt class="text-xs text-muted-foreground">Gmail Query</dt>
+                <dd class="text-sm text-foreground mt-0.5 break-all">{{ settings.gmail_query }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">Database Path</dt>
+                <dd class="text-sm text-foreground mt-0.5 break-all">{{ settings.database_path }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">Schedule</dt>
+                <dd class="text-sm text-foreground mt-0.5">{{ settings.schedule|join(', ') if settings.schedule else '-' }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">Timezone</dt>
+                <dd class="text-sm text-foreground mt-0.5">{{ settings.timezone }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">AI Enabled</dt>
+                <dd class="text-sm mt-0.5"><span class="badge {% if settings.ai_enabled %}badge-success{% else %}badge-neutral{% endif %}">{{ 'Yes' if settings.ai_enabled else 'No' }}</span></dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">Ollama Base URL</dt>
+                <dd class="text-sm text-foreground mt-0.5 break-all">{{ settings.ollama_base_url or '-' }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">Ollama Model</dt>
+                <dd class="text-sm text-foreground mt-0.5">{{ settings.ollama_model or '-' }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">Parser Version</dt>
+                <dd class="text-sm text-foreground mt-0.5">{{ settings.parser_version }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">LINE Configured</dt>
+                <dd class="text-sm mt-0.5"><span class="badge {% if settings.line_configured %}badge-success{% else %}badge-neutral{% endif %}">{{ 'Yes' if settings.line_configured else 'No' }}</span></dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">Log Level</dt>
+                <dd class="text-sm text-foreground mt-0.5">{{ settings.log_level }}</dd>
+            </div>
+        </dl>
+    </div>
 </div>
 
 <div class="card mt-6">
-    <h2 class="text-sm font-medium text-neutral-900 mb-3">Data Management</h2>
-    <div class="flex flex-wrap items-center gap-3">
-        <button
-            class="px-4 py-2 rounded-lg border border-red-300 text-sm font-medium text-red-700 hover:bg-red-50"
-            hx-post="/api/settings/clear-data"
-            hx-target="#settings-data-status"
-            hx-swap="outerHTML"
-            hx-confirm="Clear all transactions, unknown emails, runs, mappings, and ignored subjects?"
-            hx-disabled-elt="this"
-        >Clear All Data</button>
-        <a
-            href="/api/settings/export"
-            class="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
-        >Export</a>
-        <form
-            class="flex flex-wrap items-center gap-2"
-            hx-post="/api/settings/import"
-            hx-encoding="multipart/form-data"
-            hx-target="#settings-data-status"
-            hx-swap="outerHTML"
-            hx-confirm="Importing will replace current runtime data. Continue?"
-        >
-            <input type="file" name="file" accept="application/json,.json" class="input" required>
+    <div class="card-body">
+        <h2 class="text-sm font-medium text-foreground mb-3">Data Management</h2>
+        <div class="flex flex-wrap items-center gap-3">
             <button
-                type="submit"
-                class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700"
+                class="btn btn-destructive-outline btn-md"
+                hx-post="/api/settings/clear-data"
+                hx-target="#settings-data-status"
+                hx-swap="outerHTML"
+                hx-confirm="Clear all transactions, unknown emails, runs, mappings, and ignored subjects?"
                 hx-disabled-elt="this"
-            >Import</button>
-        </form>
+            >Clear All Data</button>
+            <a href="/api/settings/export" class="btn btn-outline btn-md">Export</a>
+            <form
+                class="flex flex-wrap items-center gap-2"
+                hx-post="/api/settings/import"
+                hx-encoding="multipart/form-data"
+                hx-target="#settings-data-status"
+                hx-swap="outerHTML"
+                hx-confirm="Importing will replace current runtime data. Continue?"
+            >
+                <input type="file" name="file" accept="application/json,.json" class="input" required>
+                <button type="submit" class="btn btn-primary btn-md" hx-disabled-elt="this">Import</button>
+            </form>
+        </div>
+        <div id="settings-data-status" class="text-sm text-muted-foreground mt-3">Export before clearing or importing if you need a restore point.</div>
     </div>
-    <div id="settings-data-status" class="text-sm text-neutral-500 mt-3">Export before clearing or importing if you need a restore point.</div>
 </div>
 {% endblock %}

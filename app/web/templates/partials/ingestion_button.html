@@ -1,23 +1,23 @@
 <form id="ingestion-run" class="flex flex-wrap items-center gap-2">
-    <select name="window" class="input w-32">
+    <select name="window" class="input w-32 sm:w-36">
         <option value="default">Configured</option>
         <option value="last_7_days">Last 7 days</option>
         <option value="last_30_days">Last 30 days</option>
         <option value="last_90_days">Last 90 days</option>
     </select>
     <button
-        class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+        class="btn btn-primary btn-md"
         hx-post="/api/ingestion/run"
         hx-swap="outerHTML"
         hx-target="#ingestion-run"
         hx-disabled-elt="this"
     >
-        <span class="spinner hidden htmx-indicator">
-            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <span class="htmx-indicator">
+            <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
             </svg>
         </span>
-        <span class="button-text">Run Ingestion Now</span>
+        <span>Run Ingestion Now</span>
     </button>
 </form>

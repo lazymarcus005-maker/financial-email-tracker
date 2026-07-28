@@ -1,0 +1,12 @@
+{
+  "name": "financial-email-tracker-web",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build:css": "tailwindcss -i ./app/web/static/tailwind-input.css -o ./app/web/static/tailwind.css --minify",
+    "watch:css": "tailwindcss -i ./app/web/static/tailwind-input.css -o ./app/web/static/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.13"
+  }
+}

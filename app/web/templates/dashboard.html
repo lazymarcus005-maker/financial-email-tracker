@@ -3,92 +3,92 @@
 {% block title %}Dashboard - Financial Email Tracker{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-    <h1 class="text-xl font-semibold text-neutral-900">Dashboard</h1>
+<div class="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
+    <h1 class="text-xl font-semibold text-foreground">Dashboard</h1>
     {% include "partials/ingestion_button.html" %}
 </div>
 
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-    <div class="card">
-        <div class="text-sm text-neutral-500">Income Today</div>
-        <div class="text-2xl font-semibold text-green-600 mt-1 tabular-nums">฿{{ '{:,.2f}'.format(stats.income_today) }}</div>
+<div class="grid grid-cols-2 gap-3 mb-6 sm:gap-4 lg:grid-cols-3">
+    <div class="card card-body">
+        <div class="text-sm text-muted-foreground">Income Today</div>
+        <div class="text-xl sm:text-2xl font-semibold text-green-600 mt-1 tabular-nums">฿{{ '{:,.2f}'.format(stats.income_today) }}</div>
     </div>
-    <div class="card">
-        <div class="text-sm text-neutral-500">Expense Today</div>
-        <div class="text-2xl font-semibold text-red-600 mt-1 tabular-nums">฿{{ '{:,.2f}'.format(stats.expense_today) }}</div>
+    <div class="card card-body">
+        <div class="text-sm text-muted-foreground">Expense Today</div>
+        <div class="text-xl sm:text-2xl font-semibold text-red-600 mt-1 tabular-nums">฿{{ '{:,.2f}'.format(stats.expense_today) }}</div>
     </div>
-    <div class="card">
-        <div class="text-sm text-neutral-500">Total Transactions</div>
-        <div class="text-2xl font-semibold text-neutral-900 mt-1 tabular-nums">{{ stats.total_transactions }}</div>
+    <div class="card card-body">
+        <div class="text-sm text-muted-foreground">Total Transactions</div>
+        <div class="text-xl sm:text-2xl font-semibold text-foreground mt-1 tabular-nums">{{ stats.total_transactions }}</div>
     </div>
-    <div class="card">
-        <div class="text-sm text-neutral-500">Uncategorized</div>
-        <div class="text-2xl font-semibold text-amber-600 mt-1 tabular-nums">{{ stats.uncategorized }}</div>
+    <div class="card card-body">
+        <div class="text-sm text-muted-foreground">Uncategorized</div>
+        <div class="text-xl sm:text-2xl font-semibold text-amber-600 mt-1 tabular-nums">{{ stats.uncategorized }}</div>
     </div>
-    <div class="card">
-        <div class="text-sm text-neutral-500">Unknown Parser</div>
-        <div class="text-2xl font-semibold text-amber-600 mt-1 tabular-nums">{{ stats.unknown_parser }}</div>
+    <div class="card card-body">
+        <div class="text-sm text-muted-foreground">Unknown Parser</div>
+        <div class="text-xl sm:text-2xl font-semibold text-amber-600 mt-1 tabular-nums">{{ stats.unknown_parser }}</div>
     </div>
-    <div class="card">
-        <div class="text-sm text-neutral-500">Last Sync</div>
-        <div class="text-2xl font-semibold text-neutral-900 mt-1">{{ stats.last_sync | thai_date if stats.last_sync else 'Never' }}</div>
+    <div class="card card-body">
+        <div class="text-sm text-muted-foreground">Last Sync</div>
+        <div class="text-xl sm:text-2xl font-semibold text-foreground mt-1">{{ stats.last_sync | thai_date if stats.last_sync else 'Never' }}</div>
     </div>
 </div>
 
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
     {% for item in expense_summaries %}
-    <div class="card">
+    <div class="card card-body">
         <div class="flex items-center justify-between gap-3">
-            <div class="text-sm text-neutral-500">Expense {{ item.days }} Days</div>
+            <div class="text-sm text-muted-foreground">Expense {{ item.days }} Days</div>
             <span class="badge badge-expense">{{ item.count }} tx</span>
         </div>
-        <div class="text-2xl font-semibold text-red-600 mt-1 tabular-nums">฿{{ '{:,.2f}'.format(item.total) }}</div>
-        <div class="text-xs text-neutral-500 mt-2">{{ item.start_day[5:] }} - {{ item.end_day[5:] }}</div>
+        <div class="text-xl sm:text-2xl font-semibold text-red-600 mt-1 tabular-nums">฿{{ '{:,.2f}'.format(item.total) }}</div>
+        <div class="text-xs text-muted-foreground mt-2">{{ item.start_day[5:] }} - {{ item.end_day[5:] }}</div>
     </div>
     {% endfor %}
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-8">
-    <div class="card lg:col-span-2">
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div class="card card-body lg:col-span-2">
         <div class="flex items-center justify-between gap-3 mb-1">
-            <h2 class="text-sm font-medium text-neutral-900">Expense</h2>
-            <div class="flex rounded-lg border border-neutral-300 overflow-hidden text-sm">
+            <h2 class="text-sm font-medium text-foreground">Expense</h2>
+            <div class="flex rounded-md border border-input overflow-hidden text-sm">
                 {% for option in [7, 14, 30] %}
                 <a
                     href="/?days={{ option }}"
-                    class="px-3 py-1.5 transition-colors duration-150 {% if expense_window_days == option %}bg-neutral-900 text-white{% else %}text-neutral-700 hover:bg-neutral-100{% endif %}"
+                    class="px-3 py-1.5 transition-colors {% if expense_window_days == option %}bg-primary text-primary-foreground{% else %}text-muted-foreground hover:bg-accent{% endif %}"
                 >{{ option }}</a>
                 {% endfor %}
             </div>
         </div>
-        <div class="text-xs text-neutral-500 mb-4">Total: ฿{{ '{:,.2f}'.format(total_expense) }} over last {{ expense_window_days }} days</div>
+        <div class="text-xs text-muted-foreground mb-4">Total: ฿{{ '{:,.2f}'.format(total_expense) }} over last {{ expense_window_days }} days</div>
 
-        <div class="h-64 flex items-end gap-2 border-b border-neutral-200">
+        <div class="h-56 sm:h-64 flex items-end gap-1.5 sm:gap-2 border-b border-border">
             {% for item in expense_days %}
             {% set pct = (item.total / max_expense * 100) if max_expense else 0 %}
             <div class="flex-1 min-w-0 h-full flex flex-col justify-end items-center gap-2">
-                <div class="text-[11px] text-neutral-500 whitespace-nowrap tabular-nums">฿{{ '{:,.0f}'.format(item.total) }}</div>
+                <div class="text-[10px] sm:text-[11px] text-muted-foreground whitespace-nowrap tabular-nums">฿{{ '{:,.0f}'.format(item.total) }}</div>
                 <div
-                    class="w-full max-w-10 rounded-t-md bg-red-500 hover:bg-red-600 transition-colors duration-150 motion-safe:animate-[growUp_0.4s_ease-out_both]"
+                    class="w-full max-w-10 rounded-t-md bg-red-500 hover:bg-red-600 transition-colors motion-safe:animate-growUp"
                     style="height: {{ pct if pct > 3 else (3 if item.total > 0 else 0) }}%;"
                     title="{{ item.day }}: ฿{{ '{:,.2f}'.format(item.total) }}"
                 ></div>
             </div>
             {% endfor %}
         </div>
-        <div class="mt-2 flex gap-2 text-[11px] text-neutral-500">
+        <div class="mt-2 flex gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] text-muted-foreground">
             {% for item in expense_days %}
             <div class="flex-1 min-w-0 text-center truncate">{{ item.day[5:] }}</div>
             {% endfor %}
         </div>
     </div>
 
-    <div class="card">
-        <h2 class="text-sm font-medium text-neutral-900 mb-3">Spend by Bank</h2>
+    <div class="card card-body">
+        <h2 class="text-sm font-medium text-foreground mb-3">Spend by Bank</h2>
         {% if pie_segments and pie_segments|sum(attribute='total') > 0 %}
         <div class="flex flex-col items-center gap-4">
             <svg viewBox="0 0 36 36" class="w-32 h-32 -rotate-90">
-                <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#e5e5e5" stroke-width="4"></circle>
+                <circle cx="18" cy="18" r="15.9155" fill="none" stroke="hsl(var(--border))" stroke-width="4"></circle>
                 {% for seg in pie_segments %}
                 <circle
                     cx="18" cy="18" r="15.9155" fill="none" stroke="{{ seg.color }}" stroke-width="4"
@@ -103,29 +103,29 @@
                 <li class="flex items-center justify-between gap-2">
                     <span class="flex items-center gap-1.5 min-w-0">
                         <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ seg.color }}"></span>
-                        <span class="truncate text-neutral-700">{{ seg.bank }}</span>
+                        <span class="truncate text-foreground">{{ seg.bank }}</span>
                     </span>
-                    <span class="text-neutral-500 tabular-nums shrink-0">฿{{ '{:,.0f}'.format(seg.total) }} ({{ '%.0f'|format(seg.pct) }}%)</span>
+                    <span class="text-muted-foreground tabular-nums shrink-0">฿{{ '{:,.0f}'.format(seg.total) }} ({{ '%.0f'|format(seg.pct) }}%)</span>
                 </li>
                 {% endfor %}
             </ul>
         </div>
         {% else %}
-        <p class="text-sm text-neutral-500">No expense data yet.</p>
+        <p class="text-sm text-muted-foreground">No expense data yet.</p>
         {% endif %}
     </div>
 
-    <div class="card">
-        <h2 class="text-sm font-medium text-neutral-900 mb-3">Recent Runs</h2>
+    <div class="card card-body">
+        <h2 class="text-sm font-medium text-foreground mb-3">Recent Runs</h2>
         {% if runs %}
         <div class="space-y-3">
             {% for run in runs %}
-            <div class="text-sm border-b border-neutral-100 pb-2 last:border-0 last:pb-0">
+            <div class="text-sm border-b border-border pb-2 last:border-0 last:pb-0">
                 <div class="flex items-center justify-between gap-2">
-                    <span class="text-neutral-500 truncate">{{ run.run_at | thai_date if run.run_at else '' }}</span>
+                    <span class="text-muted-foreground truncate">{{ run.run_at | thai_date if run.run_at else '' }}</span>
                     {% if run.failed and run.failed > 0 %}
                     <button
-                        class="px-1.5 py-0.5 rounded border border-red-300 text-red-600 text-xs hover:bg-red-50 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-red-400 shrink-0"
+                        class="btn btn-destructive-outline btn-sm shrink-0"
                         hx-post="/api/ingestion/retry/{{ run.id }}"
                         hx-swap="none"
                         hx-trigger="click"
@@ -135,7 +135,7 @@
                 </div>
                 {% if run.failed and run.failed > 0 %}
                 <div class="text-amber-700 text-xs mt-1">⚠️ Completed with {{ run.failed }} failure{{ 's' if run.failed != 1 else '' }} — {{ run.emails_checked or 0 }} scanned, {{ run.inserted or 0 }} saved</div>
-                <div class="text-neutral-400 text-xs">No automatic retry — click Retry to reprocess</div>
+                <div class="text-muted-foreground/70 text-xs">No automatic retry — click Retry to reprocess</div>
                 {% else %}
                 <div class="text-green-700 text-xs mt-1">✅ {{ run.emails_checked or 0 }} scanned, {{ run.inserted or 0 }} saved{% if run.duplicates %}, {{ run.duplicates }} duplicate{{ 's' if run.duplicates != 1 else '' }}{% endif %}</div>
                 {% endif %}
@@ -143,18 +143,11 @@
             {% endfor %}
         </div>
         {% else %}
-        <p class="text-sm text-neutral-500">No runs yet.</p>
+        <p class="text-sm text-muted-foreground">No runs yet.</p>
         {% endif %}
         {% if next_sync %}
-        <div class="text-xs text-neutral-400 mt-3 pt-3 border-t border-neutral-100">Next scheduled sync: {{ next_sync.strftime('%H:%M') }}</div>
+        <div class="text-xs text-muted-foreground/70 mt-3 pt-3 border-t border-border">Next scheduled sync: {{ next_sync.strftime('%H:%M') }}</div>
         {% endif %}
     </div>
 </div>
-
-<style>
-@keyframes growUp {
-    from { transform: scaleY(0); transform-origin: bottom; }
-    to { transform: scaleY(1); transform-origin: bottom; }
-}
-</style>
 {% endblock %}

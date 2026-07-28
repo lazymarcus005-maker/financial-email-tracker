@@ -3,11 +3,11 @@
 {% block title %}Unknown - Financial Email Tracker{% endblock %}
 
 {% block content %}
-<h1 class="text-xl font-semibold text-neutral-900 mb-6">Unknown Emails</h1>
+<h1 class="text-xl font-semibold text-foreground mb-6">Unknown Emails</h1>
 
-<form method="get" action="/unknown" class="card mb-6 flex flex-wrap items-end gap-3">
+<form method="get" action="/unknown" class="card card-body mb-6 flex flex-wrap items-end gap-3">
     <div>
-        <label for="filter-status" class="block text-xs text-neutral-500 mb-1">Status</label>
+        <label for="filter-status" class="label">Status</label>
         <select id="filter-status" name="status" class="input">
             <option value="" {% if filters.status == '' %}selected{% endif %}>Any</option>
             <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>Pending</option>
@@ -15,22 +15,22 @@
             <option value="ignored" {% if filters.status == 'ignored' %}selected{% endif %}>Ignored</option>
         </select>
     </div>
-    <button type="submit" class="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-700">Filter</button>
-    <a href="/unknown" class="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-100">Clear</a>
+    <button type="submit" class="btn btn-primary btn-md">Filter</button>
+    <a href="/unknown" class="btn btn-outline btn-md">Clear</a>
 </form>
 
 {% if ignored_subjects %}
-<div class="card mb-6">
-    <h2 class="text-sm font-medium text-neutral-900 mb-3">Ignored Subjects</h2>
+<div class="card card-body mb-6">
+    <h2 class="text-sm font-medium text-foreground mb-3">Ignored Subjects</h2>
     <div class="space-y-2" id="ignored-subjects-list">
         {% for subject in ignored_subjects %}
         <div id="ignored-subject-{{ subject.id }}" class="flex items-center justify-between gap-3 text-sm">
             <div class="min-w-0">
-                <div class="truncate text-neutral-900">{{ subject.subject }}</div>
-                <div class="text-xs text-neutral-500">{{ subject.created_at }}</div>
+                <div class="truncate text-foreground">{{ subject.subject }}</div>
+                <div class="text-xs text-muted-foreground">{{ subject.created_at }}</div>
             </div>
             <button
-                class="px-2 py-1 rounded-md border border-red-300 text-xs text-red-700 hover:bg-red-50"
+                class="btn btn-destructive-outline btn-sm shrink-0"
                 hx-delete="/api/ignored-subjects/{{ subject.id }}"
                 hx-target="#ignored-subject-{{ subject.id }}"
                 hx-swap="outerHTML"
@@ -43,54 +43,54 @@
 </div>
 {% endif %}
 
-<div class="card p-0 overflow-x-auto">
-    <table class="min-w-full text-sm zebra-table">
+{% if not items %}
+<div class="card" id="unknown-empty-row">
+    {% if filters.status %}
+    {% set clear_url = "/unknown" %}
+    {% include "partials/empty_state_no_match.html" %}
+    {% else %}
+    {% set title = "No unknown emails" %}
+    {% set message = "All emails have been processed successfully." %}
+    {% include "partials/empty_state_first_run.html" %}
+    {% endif %}
+</div>
+{% else %}
+<div class="table-wrap">
+    <table class="table-base zebra-table">
         <thead>
-            <tr class="text-left text-neutral-500 border-b border-neutral-200">
-                <th class="px-4 py-3 font-medium">Created</th>
-                <th class="px-4 py-3 font-medium">Subject</th>
-                <th class="px-4 py-3 font-medium">Sender</th>
-                <th class="px-4 py-3 font-medium">Code</th>
-                <th class="px-4 py-3 font-medium text-right">Amount</th>
-                <th class="px-4 py-3 font-medium">Status</th>
-                <th class="px-4 py-3 font-medium">Warnings</th>
-                <th class="px-4 py-3 font-medium">Actions</th>
+            <tr>
+                <th>Created</th>
+                <th>Subject</th>
+                <th>Sender</th>
+                <th>Code</th>
+                <th class="text-right">Amount</th>
+                <th>Status</th>
+                <th>Warnings</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody id="unknown-tbody">
             {% for item in items %}
             {% include "partials/unknown_row.html" %}
-            {% else %}
-            <tr id="unknown-empty-row">
-                <td colspan="8" class="px-4 py-6 text-center text-neutral-500">
-                    {% if filters.status %}
-                    {% set clear_url = "/unknown" %}
-                    {% include "partials/empty_state_no_match.html" %}
-                    {% else %}
-                    {% set title = "No unknown emails" %}
-                    {% set message = "All emails have been processed successfully." %}
-                    {% include "partials/empty_state_first_run.html" %}
-                    {% endif %}
-                </td>
-            </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+{% endif %}
 
 {% set qs_base = 'status=' ~ (filters.status|urlencode) ~ '&page_size=' ~ page_size %}
 <div class="flex items-center justify-between mt-4 text-sm">
-    <div class="text-neutral-500">Page {{ page }} of {{ total_pages }} ({{ total }} total)</div>
+    <div class="text-muted-foreground">Page {{ page }} of {{ total_pages }} ({{ total }} total)</div>
     <div class="flex gap-2">
         {% if page > 1 %}
-        <a href="/unknown?{{ qs_base }}&page={{ page - 1 }}" class="px-3 py-1.5 rounded-md border border-neutral-300 hover:bg-neutral-100">Prev</a>
+        <a href="/unknown?{{ qs_base }}&page={{ page - 1 }}" class="btn btn-outline btn-sm">Prev</a>
         {% else %}
-        <span class="px-3 py-1.5 rounded-md border border-neutral-200 text-neutral-400">Prev</span>
+        <span class="btn btn-outline btn-sm opacity-50 pointer-events-none">Prev</span>
         {% endif %}
         {% if page < total_pages %}
-        <a href="/unknown?{{ qs_base }}&page={{ page + 1 }}" class="px-3 py-1.5 rounded-md border border-neutral-300 hover:bg-neutral-100">Next</a>
+        <a href="/unknown?{{ qs_base }}&page={{ page + 1 }}" class="btn btn-outline btn-sm">Next</a>
         {% else %}
-        <span class="px-3 py-1.5 rounded-md border border-neutral-200 text-neutral-400">Next</span>
+        <span class="btn btn-outline btn-sm opacity-50 pointer-events-none">Next</span>
         {% endif %}
     </div>
 </div>

@@ -1,3 +1,225 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 71% 35%;
+    --success-foreground: 0 0% 98%;
+    --warning: 32 95% 44%;
+    --warning-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 0.625rem;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Prevent iOS zoom on input focus */
+  @media (max-width: 767px) {
+    .input, select, textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  *:focus-visible {
+    outline: none;
+  }
+}
+
+@layer components {
+  /* Button */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-primary text-primary-foreground shadow hover:bg-primary/90;
+  }
+  .btn-secondary {
+    @apply border border-input bg-background text-foreground shadow-sm hover:bg-accent;
+  }
+  .btn-outline {
+    @apply border border-input bg-background text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground;
+  }
+  .btn-ghost {
+    @apply text-foreground hover:bg-accent hover:text-accent-foreground;
+  }
+  .btn-destructive {
+    @apply bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90;
+  }
+  .btn-destructive-outline {
+    @apply border border-destructive/40 bg-background text-destructive shadow-sm hover:bg-destructive/10;
+  }
+  .btn-link {
+    @apply text-foreground underline-offset-4 hover:underline;
+  }
+  .btn-md {
+    @apply h-9 px-4 py-2;
+  }
+  .btn-sm {
+    @apply h-8 rounded-md px-3 text-xs;
+  }
+  .btn-lg {
+    @apply h-10 rounded-md px-6;
+  }
+  .btn-icon {
+    @apply h-8 w-8 rounded-md p-0;
+  }
+
+  /* Card */
+  .card {
+    @apply rounded-xl border border-border bg-card text-card-foreground shadow-sm;
+  }
+  .card-header {
+    @apply flex flex-col gap-1 p-5 sm:p-6;
+  }
+  .card-title {
+    @apply font-semibold leading-none tracking-tight text-foreground;
+  }
+  .card-description {
+    @apply text-sm text-muted-foreground;
+  }
+  .card-content {
+    @apply p-5 pt-0 sm:p-6 sm:pt-0;
+  }
+  .card-body {
+    @apply p-5 sm:p-6;
+  }
+  .card-footer {
+    @apply flex flex-wrap items-center gap-3 p-5 pt-0 sm:p-6 sm:pt-0;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap;
+  }
+  .badge-primary {
+    @apply bg-primary text-primary-foreground;
+  }
+  .badge-secondary {
+    @apply bg-secondary text-secondary-foreground;
+  }
+  .badge-income, .badge-success {
+    @apply bg-green-100 text-green-700;
+  }
+  .badge-expense {
+    @apply bg-red-100 text-red-700;
+  }
+  .badge-uncategorized, .badge-neutral {
+    @apply bg-muted text-muted-foreground;
+  }
+  .badge-warning {
+    @apply bg-amber-100 text-amber-800;
+  }
+
+  /* Form controls */
+  .label {
+    @apply mb-1.5 block text-xs font-medium text-muted-foreground;
+  }
+  .input {
+    @apply flex h-9 w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* Table */
+  .table-wrap {
+    @apply relative w-full overflow-x-auto rounded-xl border border-border bg-card;
+  }
+  .table-base {
+    @apply w-full text-sm;
+  }
+  .table-base thead tr {
+    @apply border-b border-border;
+  }
+  .table-base th {
+    @apply whitespace-nowrap px-4 py-3 text-left align-middle font-medium text-muted-foreground;
+  }
+  .table-base tbody tr {
+    @apply border-b border-border last:border-0 transition-colors;
+  }
+  .table-base tbody tr:hover {
+    @apply bg-muted/50;
+  }
+  .table-base td {
+    @apply px-4 py-3 align-middle;
+  }
+  .zebra-table tbody tr {
+    @apply border-b border-border last:border-0;
+  }
+  .zebra-table tbody tr:hover {
+    @apply bg-muted/50;
+  }
+
+  /* Alert */
+  .alert {
+    @apply relative w-full rounded-lg border px-4 py-3 text-sm;
+  }
+  .alert-warning {
+    @apply border-amber-200 bg-amber-50 text-amber-800;
+  }
+  .alert-destructive {
+    @apply border-destructive/30 bg-destructive/10 text-destructive;
+  }
+  .alert-title {
+    @apply mb-1 text-sm font-medium leading-none;
+  }
+  .alert-description {
+    @apply text-sm opacity-90;
+  }
+
+  /* Dialog / mobile bottom sheet */
+  .dialog-overlay {
+    @apply fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm animate-fadeIn sm:items-center sm:p-4;
+  }
+  .dialog-content {
+    @apply relative w-full max-h-[88vh] overflow-y-auto rounded-t-2xl border border-border bg-card p-5 shadow-lg animate-slideUp sm:max-h-[90vh] sm:max-w-2xl sm:rounded-xl sm:p-6 sm:animate-popIn;
+  }
+  .dialog-handle {
+    @apply mx-auto mb-4 h-1.5 w-10 shrink-0 rounded-full bg-muted sm:hidden;
+  }
+  .dialog-close {
+    @apply absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground;
+  }
+
+  /* Empty state */
+  .empty-state {
+    @apply flex flex-col items-center justify-center py-12 text-center;
+  }
+  .empty-state-icon {
+    @apply mb-4 h-12 w-12 text-muted-foreground/50;
+  }
+}
+
+@layer utilities {
+  .font-thai {
+    font-family: theme('fontFamily.thai');
+  }
+
+  /* HTMX request indicator */
+  .htmx-indicator {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .htmx-request .htmx-indicator,
+  .htmx-request.htmx-indicator {
+    opacity: 1;
+  }
+}
