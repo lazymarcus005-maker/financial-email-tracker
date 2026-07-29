@@ -127,6 +127,29 @@ CREATE TABLE IF NOT EXISTS ignored_subjects (
     UNIQUE(owner_user_id, subject)
 );
 
+CREATE TABLE IF NOT EXISTS insurance_policies (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    owner_user_id INTEGER,
+    insurer_name TEXT NOT NULL,
+    policy_name TEXT NOT NULL,
+    policy_number TEXT,
+    policy_type TEXT DEFAULT 'other',
+    insured_person TEXT,
+    logo_url TEXT,
+    premium_amount DOUBLE PRECISION,
+    premium_frequency TEXT DEFAULT 'annual',
+    coverage_amount DOUBLE PRECISION,
+    start_date TEXT,
+    end_date TEXT,
+    renewal_date TEXT,
+    status TEXT DEFAULT 'active',
+    contact_phone TEXT,
+    contact_email TEXT,
+    notes TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
@@ -157,6 +180,7 @@ _ALL_TABLES = (
     "unknown_patterns",
     "ignored_subjects",
     "users",
+    "insurance_policies",
 )
 
 
@@ -230,6 +254,7 @@ _PRAGMA_RE = re.compile(r"^\s*PRAGMA\b", re.IGNORECASE)
 _INSERT_RE = re.compile(r"^\s*INSERT\b", re.IGNORECASE)
 _RETURNING_RE = re.compile(r"\bRETURNING\b", re.IGNORECASE)
 _IS_PARAM_RE = re.compile(r"\bIS\s+\?", re.IGNORECASE)
+_SQLITE_DATE_FN_RE = re.compile(r"\bdate\((\w+)\)", re.IGNORECASE)
 
 
 def _translate_insert_or_replace(sql: str) -> str:
@@ -255,6 +280,17 @@ def _translate_dialect(sql: str) -> str:
     # syntax error there. `IS NOT DISTINCT FROM` is Postgres's NULL-safe
     # equality operator and *does* accept a parameter, with the same semantics.
     sql = _IS_PARAM_RE.sub("IS NOT DISTINCT FROM ?", sql)
+    # SQLite's `date(col)` truncates an ISO datetime string down to 'YYYY-MM-DD'
+    # and returns a plain string (SQLite has no real date type). Postgres's
+    # `date(col)` instead CASTS to the native `date` type - which then makes
+    # Postgres infer any `= ?`/`BETWEEN ? AND ?` parameter compared against it
+    # as a `date` too, and asyncpg rejects a plain Python `str` for that (it
+    # wants a real `datetime.date`, raising "'str' object has no attribute
+    # 'toordinal'"). Since every date/time column here is TEXT storing ISO
+    # strings (see module docstring), `LEFT(col, 10)` reproduces SQLite's
+    # string-truncation behavior exactly while keeping everything in TEXT-land,
+    # so bound string params keep working.
+    sql = _SQLITE_DATE_FN_RE.sub(r"LEFT(\1, 10)", sql)
     return sql
 
 
