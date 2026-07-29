@@ -11,6 +11,8 @@
 
 > ⚠️ ข้อควรระวัง: repo นี้มี `finance.db` จริง — **ทุกขั้นทดสอบให้ทำกับ copy ของ DB เสมอ ห้ามแตะตัวจริงตรงๆ**
 
+> ⚠️ **สิ่งสำคัญเกี่ยวกับ branch sync:** `postgres_backend.py` ต้องมี schema ตรงกับตารางทั้งหมดที่แอปใช้จริง — ถ้ามี PR/feature อื่นเข้า `master` ที่เพิ่มตาราง/คอลัมน์ใหม่ (เช่น feature `insurance_policies` ดูข้อ "เหตุการณ์จริง" ด้านล่าง) ต้อง sync `SCHEMA_SQL` ใน postgres_backend.py ให้ตรงด้วยเสมอ ก่อน deploy ไม่งั้นแอปจะ error `relation "..." does not exist` ตอน runtime
+
 ---
 
 ## สถานะ (2026-07-29)
@@ -53,6 +55,24 @@ Postgres ไม่ต้องมี `_migrate_schema`/`_rebuild_*` แบบ SQ
 4. **ไม่มี `lastrowid`** — ต้องใช้ `RETURNING id` เสมอ adapter จัดการให้อัตโนมัติด้วยการ inject `RETURNING id` เข้า INSERT ที่ไม่มีอยู่แล้ว (ทุกตารางใช้ `id` เป็น PK เหมือนกันหมด ทำให้ auto-inject ปลอดภัย) UPSERT ที่ conflict แล้วไม่ insert จะได้ `lastrowid=0` — fallback lookup เดิมใน queries.py จำเป็นและถูกใช้อยู่แล้ว
 5. **`PRAGMA table_info(...)`** — ไม่มีใน Postgres แปลเป็น query `information_schema.columns` แทน (เฉพาะจุดที่เรียกจริงตอน runtime คือ import/export feature)
 6. **DSN string ที่มี `#` ใน password** — `#` เป็นอักขระสงวนของ URI (fragment delimiter) ทั้ง `urllib.parse.urlsplit` และ asyncpg's DSN parser พังกับ password ที่มี `#` ไม่ escape → เขียน parser เองที่หา `@` ตัวสุดท้ายก่อน path แทนพึ่ง URI parser มาตรฐาน (ดู `_split_dsn` ใน [postgres_backend.py](../app/storage/postgres_backend.py))
+7. **⚠️ `#` ถูกตัดทิ้งไปตั้งแต่ตอนโหลด env var (เจอตอน deploy จริง)** — แม้ `_split_dsn` จะรองรับ `#` ดิบๆ แล้ว (ข้อ 6) แต่หลาย `.env` parser/deployment platform ถือว่า `#` ที่ไม่ escape เป็นจุดเริ่ม **comment** และตัดทุกอย่างหลังจากนั้นทิ้งไปเงียบๆ ก่อนค่าจะมาถึง Python เลยด้วยซ้ำ (เช่น `DATABASE_URL=postgresql://user:pass#1234@host:5432/db` เหลือแค่ `postgresql://user:pass` ไม่มี host/port ทำให้ error `invalid literal for int()` ที่ `_split_dsn` แต่ต้นตอจริงคือ env var ถูกตัดตั้งแต่ต้น) **วิธีแก้ที่ปลอดภัยที่สุด:** percent-encode อักขระพิเศษในค่าที่ตั้งจริงบน deployment platform เสมอ (`#` → `%23`) — `_split_dsn` เรียก `unquote()` ให้อัตโนมัติอยู่แล้ว จึงได้ค่าที่ถูกต้องกลับมาไม่ว่าจะผ่าน layer ไหน (env loader, shell, URI parser)
+8. **⚠️ `date(col)` — SQLite date function เจอตอน deploy จริงอีกจุด (9 occurrences ใน queries.py)** — SQLite's `date(col)` ตัด ISO datetime string ให้เหลือแค่ `'YYYY-MM-DD'` แล้วคืนเป็น **string ธรรมดา** (SQLite ไม่มี real date type) แต่ Postgres's `date(col)` คือการ **cast เป็น type `date` จริง** — ผลคือ Postgres infer type ของ parameter ที่เทียบด้วย (`= ?`, `BETWEEN ? AND ?`) เป็น `date` ไปด้วย ทำให้ asyncpg ปฏิเสธ string ธรรมดาที่แอปส่งมา (`AttributeError: 'str' object has no attribute 'toordinal'`) ทั้งที่คอลัมน์เป็น `TEXT` แล้วตามข้อ 2 **วิธีแก้:** แปลง `date(col)` → `LEFT(col, 10)` ในขั้น dialect translation (คืนผลลัพธ์แบบ string เหมือน SQLite เป๊ะ ไม่ trigger type inference) — เจอจาก error จริงตอน deploy ไม่ได้เจอตอน scope เดิม เพราะ grep แรกไม่ได้ครอบคลุม `date(...)` (เช็คแค่ `strftime`) เป็นบทเรียนว่าต้อง grep SQLite date/time function ทั้งชุด (`date()`, `datetime()`, `strftime()`, `julianday()`) ให้ครบตั้งแต่ต้น ไม่ใช่แค่บางตัว
+
+---
+
+## เหตุการณ์จริง: schema drift ระหว่าง branch (2026-07-29)
+
+Deploy จริงพัง `asyncpg.exceptions.UndefinedTableError: relation "insurance_policies" does not exist` ตอน `/setup` — สาเหตุคือ **PR อีกอันถูก merge เข้า `master` พร้อมกับ PR ของ postgres migration นี้** ทำให้ deploy จริงมีฟีเจอร์ "Insurance policies" (ตาราง + routes + templates) ที่ `postgres_backend.py` (เขียนจาก schema ของ branch `features/db-migration` เท่านั้น) ไม่รู้จักเลย
+
+**วิธีตรวจสอบ:** `git diff features/db-migration origin/master --stat` เจอว่า master มีตาราง `insurance_policies` (ใน `database.py`) + CRUD functions (ใน `queries.py`, ใช้ `?` placeholder ธรรมดา ไม่มี dialect พิเศษ) + routes/templates ใหม่ — ไม่มีอะไรซับซ้อนเพิ่มสำหรับ Postgres นอกจาก CREATE TABLE
+
+**การแก้ไข:**
+1. เพิ่ม `insurance_policies` เข้า `postgres_backend.SCHEMA_SQL` (ใช้ `TEXT` สำหรับ `start_date`/`end_date`/`renewal_date`/`created_at`/`updated_at` ตาม convention เดิมของไฟล์นี้)
+2. เพิ่มชื่อตารางเข้า `_ALL_TABLES` (postgres_backend.py), `TABLES` (scripts/migrate_to_postgres.py), `_POSTGRES_TABLES` (tests/conftest.py)
+3. รัน `database.init_db()` ตรงกับ live DB จริง (เป็น `CREATE TABLE IF NOT EXISTS` — idempotent, ปลอดภัยกับตารางอื่นที่มีข้อมูลอยู่แล้ว) เพื่อสร้างตารางที่ขาดไปทันที แก้ปัญหา production ให้ก่อน
+4. Verify CRUD pattern จริงจาก master (`INSERT`+lastrowid, `dict(row)`, `UPDATE ... CURRENT_TIMESTAMP`, `DELETE`) ผ่าน adapter ครบ
+
+**บทเรียน:** เมื่อทำงานคู่ขนานหลาย branch/PR ที่แก้ schema ทั้งคู่ — **`postgres_backend.py` ต้อง sync กับ schema ล่าสุดที่จะถูก deploy จริงเสมอ** ไม่ใช่แค่ schema ของ branch ที่ตัวเองทำงานอยู่ ก่อน deploy ควร `git diff <branch-ที่จะ-deploy>` เทียบ `database.py` เพื่อเช็ค schema drift ทุกครั้ง
 
 ---
 

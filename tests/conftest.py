@@ -18,7 +18,7 @@ from app.gmail import authorize
 
 _POSTGRES_TABLES = (
     "transactions", "ingestion_state", "ingestion_runs", "counterparty_mapping",
-    "unknown_patterns", "ignored_subjects", "users",
+    "unknown_patterns", "ignored_subjects", "users", "insurance_policies",
 )
 
 

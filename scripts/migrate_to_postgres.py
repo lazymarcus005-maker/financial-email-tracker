@@ -45,6 +45,7 @@ TABLES = (
     "counterparty_mapping",
     "unknown_patterns",
     "ignored_subjects",
+    "insurance_policies",
 )
 
 
