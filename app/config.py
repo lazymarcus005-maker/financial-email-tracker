@@ -37,7 +37,10 @@ class Settings:
     GMAIL_CLIENT_ID: str | None = None
     GMAIL_CLIENT_SECRET: str | None = None
 
-    DATABASE_PATH: str = "data/finance.db"
+    DATABASE_BACKEND: str = "aiosqlite"  # "aiosqlite" | "postgres"
+    DATABASE_PATH: str = "data/finance.db"  # used when DATABASE_BACKEND == "aiosqlite"
+    DATABASE_URL: str | None = None  # postgres: postgresql://user:pass@host:port/db
+    DATABASE_SSL: bool = True  # used when DATABASE_BACKEND == "postgres" - keep True except for known dev-only endpoints
 
     SCHEDULE: list = field(default_factory=list)
     TIMEZONE: str = "Asia/Bangkok"
