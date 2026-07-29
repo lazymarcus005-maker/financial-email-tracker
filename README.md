@@ -238,3 +238,5 @@ secrets/                # Per-user Gmail tokens (gitignored)
 
 Version 2.1 - user management, per-user data isolation, and per-user Gmail
 OAuth are in place.
+
+## Todo
