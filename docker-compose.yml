@@ -8,7 +8,14 @@ services:
       - finance_data:/app/data
       - ./secrets:/app/secrets
     environment:
+      # Default backend is the local SQLite file. Set DATABASE_BACKEND=postgres
+      # (DATABASE_URL=postgresql://user:pass@host:5432/db) in .env to switch.
+      # DATABASE_SSL defaults to true - only disable it against an endpoint you
+      # know has no TLS and accept the risk.
+      - DATABASE_BACKEND=${DATABASE_BACKEND:-aiosqlite}
       - DATABASE_PATH=${DATABASE_PATH:-/app/data/finance.db}
+      - DATABASE_URL=${DATABASE_URL:-}
+      - DATABASE_SSL=${DATABASE_SSL:-true}
       - GMAIL_CLIENT_ID=${GMAIL_CLIENT_ID:-}
       - GMAIL_CLIENT_SECRET=${GMAIL_CLIENT_SECRET:-}
       - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN:-}

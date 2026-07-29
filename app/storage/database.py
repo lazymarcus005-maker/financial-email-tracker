@@ -1,14 +1,33 @@
-"""SQLite schema and database initialization."""
+"""SQLite schema and database initialization.
+
+Supports two backends selected by `DATABASE_BACKEND`:
+- "aiosqlite" (default): local SQLite file at `DATABASE_PATH`.
+- "postgres": a PostgreSQL server via `app.storage.postgres_backend`, which
+  exposes the same connection interface aiosqlite does, so callers
+  (queries.py, persistence.py, routes) don't know which is active.
+
+The postgres backend skips `_migrate_schema`/`migrate_owner_scope` entirely -
+those exist to evolve a SQLite *file* across years of `ALTER TABLE ADD
+COLUMN`s; a Postgres deployment starts from postgres_backend.SCHEMA_SQL, which
+is already correct, via a one-time data migration (scripts/migrate_to_postgres.py).
+"""
 
 import aiosqlite
 import logging
 from pathlib import Path
+
+from app.config import get_settings
+from app.storage import postgres_backend
 
 logger = logging.getLogger(__name__)
 
 DATABASE_PATH = Path("data/finance.db")
 SQLITE_TIMEOUT_SECONDS = 30
 SQLITE_BUSY_TIMEOUT_MS = SQLITE_TIMEOUT_SECONDS * 1000
+
+
+def _use_postgres() -> bool:
+    return get_settings().DATABASE_BACKEND == "postgres"
 
 
 SCHEMA_SQL = """
@@ -151,6 +170,18 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 async def init_db():
     """Initialize database and schema."""
+    if _use_postgres():
+        db = await _connect_postgres()
+        try:
+            # postgres_backend.SCHEMA_SQL is already correct (native Postgres
+            # dialect, all columns/constraints present) - no ALTER-history to
+            # replay, so _migrate_schema/migrate_owner_scope don't apply here.
+            await db.executescript(postgres_backend.SCHEMA_SQL)
+        finally:
+            await db.close()
+        logger.info("Database initialized (postgres backend)")
+        return
+
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     async with aiosqlite.connect(str(DATABASE_PATH), timeout=SQLITE_TIMEOUT_SECONDS) as db:
@@ -160,6 +191,13 @@ async def init_db():
         await migrate_owner_scope(db)
         await db.commit()
         logger.info(f"Database initialized: {DATABASE_PATH}")
+
+
+async def _connect_postgres() -> postgres_backend.PostgresConnection:
+    settings = get_settings()
+    if not settings.DATABASE_URL:
+        raise RuntimeError("DATABASE_BACKEND=postgres requires DATABASE_URL to be set")
+    return await postgres_backend.connect(settings.DATABASE_URL, ssl=settings.DATABASE_SSL)
 
 
 async def _migrate_schema(db: aiosqlite.Connection) -> None:
@@ -199,6 +237,37 @@ async def _columns(db: aiosqlite.Connection, table: str) -> set[str]:
     return {row[1] for row in rows}
 
 
+async def _column_order(db: aiosqlite.Connection, table: str) -> list[str]:
+    cursor = await db.execute(f"PRAGMA table_info({table})")
+    rows = await cursor.fetchall()
+    await cursor.close()
+    return [row[1] for row in rows]
+
+
+# Canonical column order per SCHEMA_SQL, used to detect drift on tables where a
+# later `ALTER TABLE ADD COLUMN` (which always appends at the end) left a
+# column out of the position SCHEMA_SQL declares it in. `ALTER TABLE ADD
+# COLUMN` runs in `_migrate_schema`, *before* the owner-scope rebuilds below;
+# if a rebuild had already happened on that DB before the column existed, the
+# rebuild's UNIQUE-constraint check sees "already rebuilt" and skips forever,
+# permanently leaving the column trailing instead of in its SCHEMA_SQL spot.
+# This doesn't break the app (every query names its columns explicitly), but
+# it silently breaks anything that assumes column order, e.g. `sqlite3 .dump`
+# / iterdump()-based tooling (positional `INSERT INTO t VALUES (...)`).
+_TRANSACTIONS_COLUMN_ORDER = [
+    "id", "owner_user_id", "transaction_id", "transaction_type", "direction", "status",
+    "occurred_at", "amount", "fee", "available_balance", "counterparty", "description",
+    "category", "category_source", "bank", "parser_version", "parse_status", "parse_confidence",
+    "warnings_json", "raw_fields_json", "gmail_message_id", "created_at", "updated_at",
+]
+
+_UNKNOWN_PATTERNS_COLUMN_ORDER = [
+    "id", "owner_user_id", "subject", "sender", "transaction_code", "amount",
+    "warnings_json", "raw_fields_json", "parser_version", "status", "gmail_message_id",
+    "received_at", "resolved_transaction_id", "resolved_at", "created_at",
+]
+
+
 async def _first_admin_id(db: aiosqlite.Connection) -> int | None:
     cursor = await db.execute("SELECT id FROM users WHERE role = 'admin' ORDER BY id LIMIT 1")
     row = await cursor.fetchone()
@@ -227,7 +296,9 @@ async def _backfill_owner(db: aiosqlite.Connection, table: str) -> None:
 
 async def _rebuild_transactions(db: aiosqlite.Connection) -> None:
     sql = await _table_sql(db, "transactions")
-    if "UNIQUE(owner_user_id, gmail_message_id)" in sql:
+    has_constraint = "UNIQUE(owner_user_id, gmail_message_id)" in sql
+    in_canonical_order = await _column_order(db, "transactions") == _TRANSACTIONS_COLUMN_ORDER
+    if has_constraint and in_canonical_order:
         return
     await db.executescript(
         """
@@ -304,7 +375,9 @@ async def _rebuild_counterparty_mapping(db: aiosqlite.Connection) -> None:
 
 async def _rebuild_unknown_patterns(db: aiosqlite.Connection) -> None:
     sql = await _table_sql(db, "unknown_patterns")
-    if "UNIQUE(owner_user_id, gmail_message_id)" in sql:
+    has_constraint = "UNIQUE(owner_user_id, gmail_message_id)" in sql
+    in_canonical_order = await _column_order(db, "unknown_patterns") == _UNKNOWN_PATTERNS_COLUMN_ORDER
+    if has_constraint and in_canonical_order:
         return
     await db.executescript(
         """
@@ -394,6 +467,9 @@ async def migrate_owner_scope(db: aiosqlite.Connection) -> None:
 
 async def get_connection() -> aiosqlite.Connection:
     """Get database connection."""
+    if _use_postgres():
+        return await _connect_postgres()
+
     db = await aiosqlite.connect(str(DATABASE_PATH), timeout=SQLITE_TIMEOUT_SECONDS)
     db.row_factory = aiosqlite.Row
     await configure_connection(db)
