@@ -407,8 +407,8 @@ def test_settings_api_exposes_no_secrets(client):
     assert resp.status_code == 200
     body = resp.json()
     assert "LINE_CHANNEL_ACCESS_TOKEN" not in json.dumps(body)
-    assert "GMAIL_CREDENTIALS_PATH" not in body
-    assert "GMAIL_TOKEN_PATH" not in body
+    assert "GMAIL_CLIENT_ID" not in body
+    assert "GMAIL_CLIENT_SECRET" not in body
     assert set(body) == {
         "gmail_query", "database_path", "schedule", "timezone", "ai_enabled",
         "ollama_base_url", "ollama_model", "parser_version", "line_configured", "log_level",
@@ -455,13 +455,14 @@ def test_gmail_connect_uses_public_base_url(client, monkeypatch):
 
     captured = {}
 
-    def fake_build_authorization_url(redirect_uri, state, credentials_path):
+    def fake_build_authorization_url(redirect_uri, state, client_id, client_secret):
         captured["redirect_uri"] = redirect_uri
         return "https://accounts.google.com/o/oauth2/auth?test=1"
 
     app.dependency_overrides[settings_routes.get_settings] = lambda: Settings(
         PUBLIC_BASE_URL="https://kplus.mxlabs.cloud",
-        GMAIL_CREDENTIALS_PATH="secrets/credentials.json",
+        GMAIL_CLIENT_ID="test-client-id",
+        GMAIL_CLIENT_SECRET="test-client-secret",
     )
     monkeypatch.setattr(settings_routes, "build_authorization_url", fake_build_authorization_url)
 
@@ -480,15 +481,17 @@ def test_gmail_callback_uses_public_authorization_response(client, monkeypatch):
     def fake_exchange_authorization_response(
         redirect_uri,
         authorization_response,
-        credentials_path,
         token_path,
+        client_id,
+        client_secret,
     ):
         captured["redirect_uri"] = redirect_uri
         captured["authorization_response"] = authorization_response
 
     app.dependency_overrides[settings_routes.get_settings] = lambda: Settings(
         PUBLIC_BASE_URL="https://kplus.mxlabs.cloud",
-        GMAIL_CREDENTIALS_PATH="secrets/credentials.json",
+        GMAIL_CLIENT_ID="test-client-id",
+        GMAIL_CLIENT_SECRET="test-client-secret",
     )
     monkeypatch.setattr(settings_routes, "exchange_authorization_response", fake_exchange_authorization_response)
     client.cookies.set(settings_routes.GMAIL_OAUTH_STATE_COOKIE, "state-123")
@@ -507,20 +510,10 @@ def test_settings_reports_oauth_diagnostics(client, monkeypatch, tmp_path):
     from app.config import Settings
     from app.web.routes import settings as settings_routes
 
-    credentials_path = tmp_path / "credentials.json"
-    credentials_path.write_text(
-        json.dumps(
-            {
-                "web": {
-                    "client_id": "1234567890-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com",
-                    "client_secret": "do-not-show",
-                }
-            }
-        )
-    )
     app.dependency_overrides[settings_routes.get_settings] = lambda: Settings(
         PUBLIC_BASE_URL="https://kplus.mxlabs.cloud",
-        GMAIL_CREDENTIALS_PATH=str(credentials_path),
+        GMAIL_CLIENT_ID="1234567890-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com",
+        GMAIL_CLIENT_SECRET="do-not-show",
     )
 
     resp = client.get("/api/settings")

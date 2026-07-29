@@ -88,11 +88,10 @@ def get_category_engine() -> CategoryEngine:
 
 def get_gmail_client(request: Request) -> GmailClient:
     user_id = request.state.current_user["id"]
-    settings = get_settings()
     token_path = user_token_path(user_id)
     if not token_exists(token_path):
         raise HTTPException(status_code=400, detail="Connect Gmail in Settings before running this action")
-    return GmailClient(credentials_path=settings.GMAIL_CREDENTIALS_PATH, token_path=token_path)
+    return GmailClient(token_path=token_path)
 
 
 def get_optional_gmail_client(request: Request) -> GmailClient | None:

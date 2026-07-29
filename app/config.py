@@ -34,7 +34,8 @@ class Settings:
     """Resolved application settings."""
 
     GMAIL_QUERY: str = ""
-    GMAIL_CREDENTIALS_PATH: str = "secrets/credentials.json"
+    GMAIL_CLIENT_ID: str | None = None
+    GMAIL_CLIENT_SECRET: str | None = None
 
     DATABASE_PATH: str = "data/finance.db"
 

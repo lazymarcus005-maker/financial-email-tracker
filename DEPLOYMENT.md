@@ -35,7 +35,8 @@ Existing runtime data is assigned to that first admin during migration/setup.
    - Production: `https://your-domain/gmail/oauth2/callback`
    - This deployment: `https://kplus.mxlabs.cloud/gmail/oauth2/callback`
    - If you use `127.0.0.1` or another port locally, add that exact URI too.
-3. Download the client secret JSON and save it as `secrets/credentials.json`.
+3. Copy the client ID and client secret into `.env` as `GMAIL_CLIENT_ID` and
+   `GMAIL_CLIENT_SECRET`. No `credentials.json` file is needed on disk.
 4. Each user connects Gmail from `/settings`. The app stores a readonly Gmail
    token per user at `secrets/users/{user_id}/gmail-token.json`. Manual
    ingestion and reparse use the logged-in user's token.
@@ -44,9 +45,10 @@ Existing runtime data is assigned to that first admin during migration/setup.
    fallback.
 6. The scope requested is `gmail.readonly` - the app never sends, deletes, or
    modifies mail.
-7. Files under `secrets/` are picked up by the container via the
+7. Per-user tokens under `secrets/` are picked up by the container via the
    `./secrets:/app/secrets` bind mount in `docker-compose.yml`. `secrets/` is
-   gitignored - never commit credentials or tokens.
+   gitignored - never commit tokens. Keep this on a persistent volume so
+   per-user Gmail tokens survive redeploys.
    The container entrypoint fixes ownership of mounted `data/`, `secrets/`,
    and `logs/` before starting the app so tokens remain readable and
    refreshable after deploy.

@@ -58,7 +58,7 @@ async def reparse_transaction(
         token_path = user_token_path(owner_user_id)
         if not token_exists(token_path):
             raise RuntimeError(f"Connect Gmail for user {owner_user_id} before running reparse")
-        gmail_client = GmailClient(credentials_path=settings.GMAIL_CREDENTIALS_PATH, token_path=token_path)
+        gmail_client = GmailClient(token_path=token_path)
     registry = registry or ParserRegistry()
     engine = engine or CategoryEngine()
 
@@ -146,7 +146,7 @@ async def reparse_unknown(
         token_path = user_token_path(owner_user_id)
         if not token_exists(token_path):
             raise RuntimeError(f"Connect Gmail for user {owner_user_id} before running reparse")
-        gmail_client = GmailClient(credentials_path=settings.GMAIL_CREDENTIALS_PATH, token_path=token_path)
+        gmail_client = GmailClient(token_path=token_path)
     registry = registry or ParserRegistry()
     engine = engine or CategoryEngine()
 

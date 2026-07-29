@@ -13,8 +13,32 @@ logger = logging.getLogger(__name__)
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
-DEFAULT_CREDENTIALS_PATH = Path("secrets/credentials.json")
 USER_TOKEN_ROOT = Path("secrets/users")
+
+
+def build_client_config(client_id: str, client_secret: str) -> dict:
+    """Build the OAuth client config dict from env-provided secrets.
+
+    Replaces the on-disk credentials.json - only client_id/client_secret are
+    secret; the endpoints below are fixed Google constants.
+    """
+    return {
+        "web": {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        }
+    }
+
+
+def _require_client(client_id: str | None, client_secret: str | None) -> None:
+    if not client_id or not client_secret:
+        raise ValueError(
+            "Gmail OAuth client is not configured. Set GMAIL_CLIENT_ID and "
+            "GMAIL_CLIENT_SECRET in the environment (.env)."
+        )
 
 
 def user_token_path(user_id: int, token_root: Path | str | None = None) -> Path:
@@ -26,14 +50,16 @@ def token_exists(token_path: Path | str) -> bool:
 
 
 def get_credentials(
-    credentials_path: Path | str = DEFAULT_CREDENTIALS_PATH,
     token_path: Path | str | None = None,
 ) -> Credentials:
-    """Return valid OAuth2 credentials, refreshing or running the auth flow as needed."""
+    """Return valid OAuth2 credentials, refreshing the stored token as needed.
+
+    The per-user token file already embeds client_id/client_secret/refresh_token,
+    so no client-secret input is needed here to refresh.
+    """
     if token_path is None:
         raise ValueError("Gmail token_path is required; use user_token_path(user_id)")
 
-    credentials_path = Path(credentials_path)
     token_path = Path(token_path)
 
     creds: Credentials | None = None
@@ -68,17 +94,15 @@ def _save_token(creds: Credentials, token_path: Path) -> None:
 def build_authorization_url(
     redirect_uri: str,
     state: str,
-    credentials_path: Path | str = DEFAULT_CREDENTIALS_PATH,
+    client_id: str,
+    client_secret: str,
 ) -> str:
-    credentials_path = Path(credentials_path)
+    _require_client(client_id, client_secret)
     if redirect_uri.startswith(("http://127.0.0.1", "http://localhost")):
         os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
-    if not credentials_path.exists():
-        raise FileNotFoundError(
-            f"Gmail OAuth client credentials not found at {credentials_path}. "
-            "Download it from Google Cloud Console and save it there."
-        )
-    flow = Flow.from_client_secrets_file(str(credentials_path), scopes=SCOPES, redirect_uri=redirect_uri)
+    flow = Flow.from_client_config(
+        build_client_config(client_id, client_secret), scopes=SCOPES, redirect_uri=redirect_uri
+    )
     authorization_url, _ = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
@@ -92,13 +116,16 @@ def exchange_authorization_response(
     redirect_uri: str,
     authorization_response: str,
     token_path: Path | str,
-    credentials_path: Path | str = DEFAULT_CREDENTIALS_PATH,
+    client_id: str,
+    client_secret: str,
 ) -> None:
-    credentials_path = Path(credentials_path)
+    _require_client(client_id, client_secret)
     token_path = Path(token_path)
     if redirect_uri.startswith(("http://127.0.0.1", "http://localhost")):
         os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
-    flow = Flow.from_client_secrets_file(str(credentials_path), scopes=SCOPES, redirect_uri=redirect_uri)
+    flow = Flow.from_client_config(
+        build_client_config(client_id, client_secret), scopes=SCOPES, redirect_uri=redirect_uri
+    )
     flow.fetch_token(authorization_response=authorization_response)
     _save_token(flow.credentials, token_path)
 

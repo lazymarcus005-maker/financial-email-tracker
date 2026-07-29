@@ -9,8 +9,8 @@ services:
       - ./secrets:/app/secrets
     environment:
       - DATABASE_PATH=${DATABASE_PATH:-/app/data/finance.db}
-      - GMAIL_CREDENTIALS_PATH=${GMAIL_CREDENTIALS_PATH:-/app/secrets/credentials.json}
-      - GMAIL_TOKEN_PATH=${GMAIL_TOKEN_PATH:-/app/secrets/token.json}
+      - GMAIL_CLIENT_ID=${GMAIL_CLIENT_ID:-}
+      - GMAIL_CLIENT_SECRET=${GMAIL_CLIENT_SECRET:-}
       - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN:-}
       - LINE_USER_ID=${LINE_USER_ID:-}
       - AI_ENABLED=${AI_ENABLED:-false}
