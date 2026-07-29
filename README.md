@@ -14,6 +14,7 @@ transactions and fixing anything the parser got wrong.
   per-user data isolation
 - Per-user Gmail connection from Settings (each user stores their own OAuth
   token under `secrets/users/{user_id}/`)
+- Insurance policy management with editable records and logo URLs
 - KBank email parser (Thai + English, bilingual-aware)
 - Transaction type/status/direction detection (16+ types)
 - SQLite storage with deduplication (by Gmail message id, bank reference

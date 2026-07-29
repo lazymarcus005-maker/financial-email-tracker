@@ -399,6 +399,205 @@ def test_mappings_are_scoped_per_user(client):
     assert viewer_client.get("/api/mappings").json()["items"][0]["category"] == "Subscriptions"
 
 
+def test_insurance_page_loads(client):
+    resp = client.get("/insurance")
+    assert resp.status_code == 200
+    assert "Insurance" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_insurance_crud_is_scoped_per_user(client, db_connection):
+    user_resp = client.post(
+        "/api/users",
+        json={
+            "email": "viewer@example.com",
+            "display_name": "Viewer",
+            "password": "viewer-password",
+            "role": "user",
+            "is_active": True,
+        },
+    )
+    assert user_resp.status_code == 201
+    viewer_id = user_resp.json()["id"]
+
+    create_resp = client.post(
+        "/api/insurance",
+        json={
+            "insurer_name": "AIA",
+            "policy_name": "Family Health",
+            "policy_number": "AIA-001",
+            "policy_type": "health",
+            "insured_person": "Marcus Y",
+            "logo_url": "https://example.com/logo.png",
+            "premium_amount": 1299.5,
+            "premium_frequency": "annual",
+            "coverage_amount": 1000000,
+            "start_date": "2026-01-01",
+            "end_date": "2026-12-31",
+            "renewal_date": "2026-12-01",
+            "status": "active",
+            "contact_phone": "02-111-2222",
+            "contact_email": "support@example.com",
+            "notes": "Company health plan",
+        },
+    )
+    assert create_resp.status_code == 201
+    assert create_resp.json()["items"][0]["logo_url"] == "https://example.com/logo.png"
+    admin_id = create_resp.json()["items"][0]["id"]
+
+    viewer_client = TestClient(app)
+    viewer_client.post(
+        "/login",
+        data={"email": "viewer@example.com", "password": "viewer-password", "next": "/"},
+        follow_redirects=False,
+    )
+    viewer_resp = viewer_client.post(
+        "/api/insurance",
+        json={
+            "insurer_name": "Bupa",
+            "policy_name": "Viewer Plan",
+            "status": "pending",
+        },
+    )
+    assert viewer_resp.status_code == 201
+    viewer_id_policy = viewer_resp.json()["items"][0]["id"]
+
+    list_resp = client.get("/api/insurance")
+    assert [item["id"] for item in list_resp.json()["items"]] == [admin_id]
+    assert viewer_client.get("/api/insurance").json()["items"][0]["id"] == viewer_id_policy
+
+    update_resp = client.patch(
+        f"/api/insurance/{admin_id}",
+        json={
+            "insurer_name": "AIA",
+            "policy_name": "Family Health Plus",
+            "policy_type": "health",
+            "status": "active",
+        },
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json()["items"][0]["policy_name"] == "Family Health Plus"
+    assert update_resp.json()["items"][0]["logo_url"] == "https://example.com/logo.png"
+
+    delete_resp = client.delete(f"/api/insurance/{admin_id}")
+    assert delete_resp.status_code == 204
+    assert client.get("/api/insurance").json()["items"] == []
+    assert viewer_client.get("/api/insurance").json()["items"][0]["id"] == viewer_id_policy
+
+
+@pytest.mark.asyncio
+async def test_insurance_zero_numeric_fields_persist_as_zero(client, db_connection):
+    create_resp = client.post(
+        "/api/insurance",
+        json={
+            "insurer_name": "AIA",
+            "policy_name": "Zero Plan",
+            "premium_amount": 0,
+            "coverage_amount": 0.0,
+        },
+    )
+    assert create_resp.status_code == 201
+    created = create_resp.json()["items"][0]
+    policy_id = created["id"]
+    assert created["premium_amount"] == 0.0
+    assert created["coverage_amount"] == 0.0
+
+    cursor = await db_connection.execute(
+        "SELECT premium_amount, coverage_amount FROM insurance_policies WHERE id = ?",
+        (policy_id,),
+    )
+    row = await cursor.fetchone()
+    await cursor.close()
+    assert row["premium_amount"] == 0.0
+    assert row["coverage_amount"] == 0.0
+
+    client.patch(
+        f"/api/insurance/{policy_id}",
+        json={"insurer_name": "AIA", "policy_name": "Zero Plan", "premium_amount": 500, "coverage_amount": 1000},
+    )
+    update_resp = client.patch(
+        f"/api/insurance/{policy_id}",
+        json={"insurer_name": "AIA", "policy_name": "Zero Plan", "premium_amount": 0, "coverage_amount": 0},
+    )
+    assert update_resp.status_code == 200
+    updated = update_resp.json()["items"][0]
+    assert updated["premium_amount"] == 0.0
+    assert updated["coverage_amount"] == 0.0
+
+    cursor = await db_connection.execute(
+        "SELECT premium_amount, coverage_amount FROM insurance_policies WHERE id = ?",
+        (policy_id,),
+    )
+    row = await cursor.fetchone()
+    await cursor.close()
+    assert row["premium_amount"] == 0.0
+    assert row["coverage_amount"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_insurance_cross_user_patch_and_delete_return_404(client, db_connection):
+    user_resp = client.post(
+        "/api/users",
+        json={
+            "email": "viewer@example.com",
+            "display_name": "Viewer",
+            "password": "viewer-password",
+            "role": "user",
+            "is_active": True,
+        },
+    )
+    assert user_resp.status_code == 201
+
+    create_resp = client.post(
+        "/api/insurance",
+        json={
+            "insurer_name": "AIA",
+            "policy_name": "Admin Secret Plan",
+            "premium_amount": 1299.5,
+            "coverage_amount": 1000000,
+        },
+    )
+    assert create_resp.status_code == 201
+    admin_policy_id = create_resp.json()["items"][0]["id"]
+
+    viewer_client = TestClient(app)
+    login_resp = viewer_client.post(
+        "/login",
+        data={"email": "viewer@example.com", "password": "viewer-password", "next": "/"},
+        follow_redirects=False,
+    )
+    assert login_resp.status_code == 303
+
+    patch_resp = viewer_client.patch(
+        f"/api/insurance/{admin_policy_id}",
+        json={"insurer_name": "Hacked", "policy_name": "Hacked Plan"},
+    )
+    assert patch_resp.status_code == 404
+
+    cursor = await db_connection.execute(
+        "SELECT insurer_name, policy_name, premium_amount FROM insurance_policies WHERE id = ?",
+        (admin_policy_id,),
+    )
+    row = await cursor.fetchone()
+    await cursor.close()
+    assert row["insurer_name"] == "AIA"
+    assert row["policy_name"] == "Admin Secret Plan"
+    assert row["premium_amount"] == 1299.5
+
+    delete_resp = viewer_client.delete(f"/api/insurance/{admin_policy_id}")
+    assert delete_resp.status_code == 404
+
+    cursor = await db_connection.execute(
+        "SELECT COUNT(*) AS n FROM insurance_policies WHERE id = ?",
+        (admin_policy_id,),
+    )
+    row = await cursor.fetchone()
+    await cursor.close()
+    assert row["n"] == 1
+
+    assert viewer_client.get("/api/insurance").json()["items"] == []
+
+
 # ---- Settings ------------------------------------------------------------------
 
 

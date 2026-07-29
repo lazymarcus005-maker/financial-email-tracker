@@ -14,7 +14,7 @@ from app.logging_config import configure_logging
 from app.storage import queries
 from app.storage.database import get_connection, init_db
 from app.web.auth import is_public_path, load_user_from_request, unauthenticated_response
-from app.web.routes import auth, dashboard, ingestion, mappings, settings, transactions, unknown, users
+from app.web.routes import auth, dashboard, ingestion, insurance, mappings, settings, transactions, unknown, users
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +73,8 @@ app.include_router(unknown.page_router)
 app.include_router(mappings.router)
 app.include_router(mappings.page_router)
 app.include_router(ingestion.router)
+app.include_router(insurance.router)
+app.include_router(insurance.page_router)
 app.include_router(settings.router)
 app.include_router(settings.page_router)
 app.include_router(users.router)

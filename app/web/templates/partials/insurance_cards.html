@@ -1,0 +1,135 @@
+<div id="insurance-cards" class="grid gap-4 xl:grid-cols-2">
+    {% if not items %}
+    <div class="card xl:col-span-2">
+        <div class="card-body text-center py-12">
+            <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 20 6v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6l8-3Z"/><path d="M12 7v10"/><path d="M8.5 10.5 12 14l3.5-3.5"/></svg>
+            </div>
+            <h3 class="text-base font-medium text-foreground">No insurance policies yet</h3>
+            <p class="mt-1 text-sm text-muted-foreground">Add your first policy above. You can store logo links, dates, and renewal details for every policy.</p>
+        </div>
+    </div>
+    {% else %}
+    {% for item in items %}
+    <div class="card card-body space-y-4">
+        <div class="flex items-start justify-between gap-4">
+            <div class="flex min-w-0 items-center gap-3">
+                {% if item.logo_url %}
+                <img src="{{ item.logo_url }}" alt="{{ item.policy_name }} logo" class="h-12 w-12 rounded-lg object-cover border border-border bg-muted">
+                {% else %}
+                <div class="flex h-12 w-12 items-center justify-center rounded-lg border border-dashed border-border bg-muted text-xs text-muted-foreground">No logo</div>
+                {% endif %}
+                <div class="min-w-0">
+                    <h3 class="font-semibold text-foreground truncate">{{ item.policy_name }}</h3>
+                    <p class="text-sm text-muted-foreground truncate">{{ item.insurer_name }}{% if item.policy_number %} · {{ item.policy_number }}{% endif %}</p>
+                </div>
+            </div>
+            <span class="badge {% if item.status == 'active' %}badge-success{% elif item.status == 'pending' %}badge-warning{% else %}badge-neutral{% endif %}">{{ item.status|title }}</span>
+        </div>
+
+        <form
+            class="grid grid-cols-1 md:grid-cols-2 gap-4"
+            hx-patch="/api/insurance/{{ item.id }}"
+            hx-target="#insurance-cards"
+            hx-swap="outerHTML"
+            hx-disabled-elt="find button"
+        >
+            <div>
+                <label class="label" for="insurer-name-{{ item.id }}">Insurer Name</label>
+                <input id="insurer-name-{{ item.id }}" name="insurer_name" class="input" value="{{ item.insurer_name }}" required>
+            </div>
+            <div>
+                <label class="label" for="policy-name-{{ item.id }}">Policy Name</label>
+                <input id="policy-name-{{ item.id }}" name="policy_name" class="input" value="{{ item.policy_name }}" required>
+            </div>
+            <div>
+                <label class="label" for="policy-number-{{ item.id }}">Policy Number</label>
+                <input id="policy-number-{{ item.id }}" name="policy_number" class="input" value="{{ item.policy_number or '' }}">
+            </div>
+            <div>
+                <label class="label" for="policy-type-{{ item.id }}">Policy Type</label>
+                <select id="policy-type-{{ item.id }}" name="policy_type" class="input">
+                    {% for value in insurance_types %}
+                    <option value="{{ value }}" {% if item.policy_type == value %}selected{% endif %}>{{ value|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="label" for="status-{{ item.id }}">Status</label>
+                <select id="status-{{ item.id }}" name="status" class="input">
+                    {% for value in insurance_statuses %}
+                    <option value="{{ value }}" {% if item.status == value %}selected{% endif %}>{{ value|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="label" for="premium-frequency-{{ item.id }}">Premium Frequency</label>
+                <select id="premium-frequency-{{ item.id }}" name="premium_frequency" class="input">
+                    {% for value in premium_frequencies %}
+                    <option value="{{ value }}" {% if item.premium_frequency == value %}selected{% endif %}>{{ value|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="label" for="insured-person-{{ item.id }}">Insured Person</label>
+                <input id="insured-person-{{ item.id }}" name="insured_person" class="input" value="{{ item.insured_person or '' }}">
+            </div>
+            <div>
+                <label class="label" for="logo-url-{{ item.id }}">Logo URL</label>
+                <input id="logo-url-{{ item.id }}" name="logo_url" class="input" value="{{ item.logo_url or '' }}" placeholder="https://...">
+            </div>
+            <div>
+                <label class="label" for="premium-amount-{{ item.id }}">Premium Amount</label>
+                <input id="premium-amount-{{ item.id }}" name="premium_amount" type="number" step="0.01" class="input" value="{{ item.premium_amount if item.premium_amount is not none else '' }}">
+            </div>
+            <div>
+                <label class="label" for="coverage-amount-{{ item.id }}">Coverage Amount</label>
+                <input id="coverage-amount-{{ item.id }}" name="coverage_amount" type="number" step="0.01" class="input" value="{{ item.coverage_amount if item.coverage_amount is not none else '' }}">
+            </div>
+            <div>
+                <label class="label" for="start-date-{{ item.id }}">Start Date</label>
+                <input id="start-date-{{ item.id }}" name="start_date" type="date" class="input" value="{{ item.start_date or '' }}">
+            </div>
+            <div>
+                <label class="label" for="end-date-{{ item.id }}">End Date</label>
+                <input id="end-date-{{ item.id }}" name="end_date" type="date" class="input" value="{{ item.end_date or '' }}">
+            </div>
+            <div>
+                <label class="label" for="renewal-date-{{ item.id }}">Renewal Date</label>
+                <input id="renewal-date-{{ item.id }}" name="renewal_date" type="date" class="input" value="{{ item.renewal_date or '' }}">
+            </div>
+            <div>
+                <label class="label" for="contact-phone-{{ item.id }}">Contact Phone</label>
+                <input id="contact-phone-{{ item.id }}" name="contact_phone" class="input" value="{{ item.contact_phone or '' }}">
+            </div>
+            <div>
+                <label class="label" for="contact-email-{{ item.id }}">Contact Email</label>
+                <input id="contact-email-{{ item.id }}" name="contact_email" type="email" class="input" value="{{ item.contact_email or '' }}">
+            </div>
+            <div class="md:col-span-2">
+                <label class="label" for="notes-{{ item.id }}">Notes</label>
+                <textarea id="notes-{{ item.id }}" name="notes" class="input min-h-24">{{ item.notes or '' }}</textarea>
+            </div>
+            <div class="md:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-1">
+                <div class="text-xs text-muted-foreground">
+                    {% if item.premium_amount is not none %}Premium: ฿{{ '%.2f'|format(item.premium_amount) }}{% endif %}
+                    {% if item.coverage_amount is not none %}{% if item.premium_amount is not none %} · {% endif %}Coverage: ฿{{ '%.2f'|format(item.coverage_amount) }}{% endif %}
+                    {% if item.renewal_date %}{% if item.premium_amount is not none or item.coverage_amount is not none %} · {% endif %}Renewal: {{ item.renewal_date }}{% endif %}
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="submit" class="btn btn-primary btn-md">Save</button>
+                    <button
+                        type="button"
+                        class="btn btn-destructive-outline btn-md"
+                        hx-delete="/api/insurance/{{ item.id }}"
+                        hx-target="#insurance-cards"
+                        hx-swap="outerHTML"
+                        hx-confirm="Delete this insurance policy?"
+                    >Delete</button>
+                </div>
+            </div>
+        </form>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
