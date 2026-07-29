@@ -15,7 +15,9 @@ PREMIUM_FREQUENCIES = ["monthly", "quarterly", "semiannual", "annual", "one-time
 
 
 def _text(value) -> str:
-    return str(value or "").strip()
+    if value is None:
+        return ""
+    return str(value).strip()
 
 
 def _optional_text(value) -> str | None:
