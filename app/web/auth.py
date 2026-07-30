@@ -128,6 +128,8 @@ def is_public_path(path: str) -> bool:
         or path == "/login"
         or path == "/setup"
         or path.startswith("/static/")
+        or path.startswith("/mcp")
+        or path.startswith("/sse")
     )
 
 
