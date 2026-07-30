@@ -5,8 +5,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - finance_data:/app/data
-      - ./secrets:/app/secrets
+      - /opt/finance/data:/app/data
+      - /opt/finance/secrets:/app/secrets
     environment:
       # Default backend is the local SQLite file. Set DATABASE_BACKEND=postgres
       # (DATABASE_URL=postgresql://user:pass@host:5432/db) in .env to switch.
@@ -76,7 +76,6 @@ services:
       - ai
 
 volumes:
-  finance_data:
   ollama_data:
 
 networks:
