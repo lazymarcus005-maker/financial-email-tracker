@@ -1,8 +1,9 @@
 """Settings route - read-only view of non-secret configuration."""
 
-import logging
 import json
+import logging
 import secrets
+from pathlib import Path
 
 import aiosqlite
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
@@ -45,6 +46,21 @@ def _masked_gmail_client_id(client_id: str | None) -> str:
     if len(client_id) <= 20:
         return client_id
     return f"{client_id[:8]}...{client_id[-16:]}"
+
+
+def _read_token_info(token_path: Path) -> dict | None:
+    """Return non-secret fields from the Gmail OAuth token JSON."""
+    if not token_path.exists():
+        return None
+    try:
+        data = json.loads(token_path.read_text())
+        return {
+            "scopes": data.get("scopes", []),
+            "expiry": data.get("expiry"),
+            "has_refresh_token": bool(data.get("refresh_token")),
+        }
+    except Exception:
+        return None
 
 
 def _gmail_profile_email(settings: Settings, owner_user_id: int) -> str | None:
@@ -211,8 +227,11 @@ async def settings_page(
     owner_user_id: int = Depends(get_current_user_id),
 ):
     safe_settings = _safe_settings(settings)
-    safe_settings["gmail_connected"] = token_exists(user_token_path(owner_user_id))
+    token_path = user_token_path(owner_user_id)
+    safe_settings["gmail_connected"] = token_exists(token_path)
     safe_settings["gmail_profile_email"] = _gmail_profile_email(settings, owner_user_id)
     safe_settings["gmail_redirect_uri"] = _public_url_for(request, "gmail_oauth_callback", settings)
     safe_settings["gmail_oauth_client_id"] = _masked_gmail_client_id(settings.GMAIL_CLIENT_ID)
+    safe_settings["gmail_token_path"] = str(token_path)
+    safe_settings["gmail_token_info"] = _read_token_info(token_path)
     return templates.TemplateResponse(request, "settings.html", {"settings": safe_settings})
