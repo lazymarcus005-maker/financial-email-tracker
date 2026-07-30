@@ -14,6 +14,7 @@ transactions and fixing anything the parser got wrong.
   per-user data isolation
 - Per-user Gmail connection from Settings (each user stores their own OAuth
   token under `secrets/users/{user_id}/`)
+- Insurance policy management with editable records and logo URLs
 - KBank email parser (Thai + English, bilingual-aware)
 - Transaction type/status/direction detection (16+ types)
 - SQLite storage with deduplication (by Gmail message id, bank reference
@@ -54,7 +55,7 @@ for running tests and more local-dev detail.
 
 ```bash
 cp .env.example .env
-# edit .env, and place credentials.json (Gmail) under ./secrets/
+# edit .env, and set GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET (Gmail OAuth client)
 
 docker compose up --build
 ```
@@ -81,7 +82,7 @@ directly. See `.env.example` for the full list of variables:
 |---|---|
 | `DATABASE_PATH` | Path to the SQLite file |
 | `AUTH_SECRET_KEY` | Secret used to sign login/session cookies |
-| `GMAIL_CREDENTIALS_PATH` | Gmail OAuth2 client JSON used by all users |
+| `GMAIL_CLIENT_ID` / `GMAIL_CLIENT_SECRET` | Gmail OAuth2 client credentials used by all users |
 | `LINE_CHANNEL_ACCESS_TOKEN` / `LINE_USER_ID` | LINE Messaging API push target |
 | `AI_ENABLED` / `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | Optional AI-assisted categorization |
 | `TIMEZONE` | Cron schedule timezone (default `Asia/Bangkok`) |
@@ -102,9 +103,9 @@ On an existing database, startup migration adds `owner_user_id` columns and
 assigns unowned runtime data to the first admin user. If there are no users
 yet, the first `/setup` admin claims existing runtime data.
 
-Gmail access is also per user. `secrets/credentials.json` is the shared OAuth
-client configuration, while user tokens are stored separately as
-`secrets/users/{user_id}/gmail-token.json`. Manual ingestion and reparse use
+Gmail access is also per user. The `GMAIL_CLIENT_ID` / `GMAIL_CLIENT_SECRET`
+env vars are the shared OAuth client configuration, while user tokens are
+stored separately as `secrets/users/{user_id}/gmail-token.json`. Manual ingestion and reparse use
 the logged-in user's Gmail token. Scheduled ingestion runs separately for each
 active user that has connected Gmail. The app does not use a shared runtime
 Gmail token.
@@ -193,7 +194,7 @@ tests/
   test_performance.py  # Parse throughput + index-usage regression guards
 
 data/                  # SQLite database (gitignored)
-secrets/                # Gmail credentials.json and per-user tokens (gitignored)
+secrets/                # Per-user Gmail tokens (gitignored)
 ```
 
 ## Troubleshooting
@@ -237,3 +238,5 @@ secrets/                # Gmail credentials.json and per-user tokens (gitignored
 
 Version 2.1 - user management, per-user data isolation, and per-user Gmail
 OAuth are in place.
+
+## Todo

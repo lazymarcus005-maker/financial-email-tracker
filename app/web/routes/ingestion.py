@@ -14,6 +14,7 @@ from app.gmail.client import GmailClient
 from app.gmail.reader import GmailReader
 from app.ingestion.reparse import reparse_unknown
 from app.ingestion.service import IngestionAlreadyRunningError, run_ingestion
+from app.integrations.line import format_daily_summary, send_message
 from app.parsers.registry import ParserRegistry
 from app.storage import queries
 from app.web.deps import get_category_engine, get_current_user_id, get_db, get_gmail_client, get_parser_registry
@@ -93,6 +94,49 @@ def _summary_status_text(summary: dict, window: str) -> str:
     if scanned == 0:
         return f"0 scanned for {window}; Gmail search found no matching email."
     return f"{scanned} scanned, {inserted} saved, {duplicates} duplicate, {failed} failed."
+
+
+def _line_summary_button_html(label: str = "Send LINE Summary", status_text: str | None = None) -> str:
+    status_html = ""
+    if status_text:
+        status_html = f'<span class="text-xs text-muted-foreground">{html.escape(status_text)}</span>'
+    return f"""<div id="line-summary-btn" class="flex items-center gap-2">
+    <button
+        class="btn btn-outline btn-md"
+        hx-post="/api/line/summary"
+        hx-swap="outerHTML"
+        hx-target="#line-summary-btn"
+        hx-disabled-elt="this"
+    >
+        <span class="htmx-indicator">
+            <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+        </span>
+        <span>{html.escape(label)}</span>
+    </button>
+    {status_html}
+</div>"""
+
+
+@router.post("/line/summary")
+async def send_line_summary(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    owner_user_id: int = Depends(get_current_user_id),
+):
+    settings = get_settings()
+    data = await queries.get_daily_summary_data(db, owner_user_id=owner_user_id)
+    text = format_daily_summary(data)
+    sent = await send_message(settings.LINE_USER_ID, text, settings.LINE_CHANNEL_ACCESS_TOKEN)
+
+    if request.headers.get("hx-request") == "true":
+        if sent:
+            return HTMLResponse(_line_summary_button_html("Sent!", status_text="✅ Summary sent to LINE"))
+        return HTMLResponse(_line_summary_button_html("Send LINE Summary", status_text="❌ Failed — check LINE config"))
+
+    return {"sent": sent}
 
 
 @router.get("/runs")

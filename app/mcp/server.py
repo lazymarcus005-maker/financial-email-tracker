@@ -11,11 +11,14 @@ has a real, user-visible external side effect.
 See docs/mcp-agent-config.md for agent configuration and security notes.
 """
 
+import asyncio
 import logging
 import re
+import secrets
 import time
 from typing import Any
 
+from mcp.server.auth.provider import AccessToken
 from mcp.server.fastmcp import FastMCP
 
 from app.classification import history
@@ -40,6 +43,18 @@ _SENSITIVE_RAW_FIELD_TOKENS = ("account", "reference", "ref_no", "email", "phone
 _SENSITIVE_ARG_TOKENS = ("token", "password", "secret", "body", "raw")
 
 mcp = FastMCP("financial-email-tracker")
+
+
+class _StaticTokenVerifier:
+    """Verifies a single static bearer token (constant-time compare)."""
+
+    def __init__(self, token: str) -> None:
+        self._token = token
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        if secrets.compare_digest(token, self._token):
+            return AccessToken(token=token, client_id="mcp-client", scopes=["read"])
+        return None
 
 
 class MCPConfigError(RuntimeError):
@@ -420,12 +435,40 @@ async def send_line_daily_summary(day: str | None = None) -> dict[str, Any]:
     return await _call_tool("send_line_daily_summary", owner_user_id, _run, day=day)
 
 
+def _configure_http(settings) -> None:
+    """Apply host/port/token settings to the mcp instance for HTTP transports."""
+    if not settings.MCP_API_TOKEN:
+        raise RuntimeError(
+            "MCP_API_TOKEN must be set when using HTTP transport (sse or streamable-http)."
+        )
+    mcp.settings.host = settings.MCP_HOST
+    mcp.settings.port = settings.MCP_PORT
+    mcp._token_verifier = _StaticTokenVerifier(settings.MCP_API_TOKEN)
+
+
 def main() -> None:
     settings = get_settings()
     if not settings.MCP_ENABLED:
         raise SystemExit("MCP server is disabled. Set MCP_ENABLED=true to run it.")
     get_mcp_owner_user_id(settings)  # fail fast if not configured
-    mcp.run()
+
+    transport = settings.MCP_TRANSPORT
+
+    if transport == "stdio":
+        logger.info("Starting MCP server (stdio)")
+        mcp.run(transport="stdio")
+    elif transport == "sse":
+        _configure_http(settings)
+        logger.info("Starting MCP server (SSE) on %s:%s", settings.MCP_HOST, settings.MCP_PORT)
+        asyncio.run(mcp.run_sse_async())
+    elif transport == "streamable-http":
+        _configure_http(settings)
+        logger.info(
+            "Starting MCP server (streamable-http) on %s:%s", settings.MCP_HOST, settings.MCP_PORT
+        )
+        asyncio.run(mcp.run_streamable_http_async())
+    else:
+        raise SystemExit(f"Unknown MCP_TRANSPORT: {transport!r}. Use stdio, sse, or streamable-http.")
 
 
 if __name__ == "__main__":

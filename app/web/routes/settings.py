@@ -1,7 +1,7 @@
 """Settings route - read-only view of non-secret configuration."""
 
-import logging
 import json
+import logging
 import secrets
 from pathlib import Path
 
@@ -40,28 +40,34 @@ def _public_authorization_response(request: Request, redirect_uri: str) -> str:
     return redirect_uri
 
 
-def _masked_gmail_client_id(credentials_path: str) -> str:
-    try:
-        raw = json.loads(Path(credentials_path).read_text(encoding="utf-8"))
-    except (FileNotFoundError, OSError, json.JSONDecodeError):
-        return "credentials.json not found"
-
-    client_id = (raw.get("web") or raw.get("installed") or {}).get("client_id")
+def _masked_gmail_client_id(client_id: str | None) -> str:
     if not client_id:
-        return "client_id not found"
+        return "client_id not set"
     if len(client_id) <= 20:
         return client_id
     return f"{client_id[:8]}...{client_id[-16:]}"
+
+
+def _read_token_info(token_path: Path) -> dict | None:
+    """Return non-secret fields from the Gmail OAuth token JSON."""
+    if not token_path.exists():
+        return None
+    try:
+        data = json.loads(token_path.read_text())
+        return {
+            "scopes": data.get("scopes", []),
+            "expiry": data.get("expiry"),
+            "has_refresh_token": bool(data.get("refresh_token")),
+        }
+    except Exception:
+        return None
 
 
 def _gmail_profile_email(settings: Settings, owner_user_id: int) -> str | None:
     token_path = user_token_path(owner_user_id)
     if not token_exists(token_path):
         return None
-    return GmailClient(
-        credentials_path=settings.GMAIL_CREDENTIALS_PATH,
-        token_path=token_path,
-    ).get_profile_email()
+    return GmailClient(token_path=token_path).get_profile_email()
 
 
 def _safe_settings(settings: Settings) -> dict:
@@ -77,6 +83,13 @@ def _safe_settings(settings: Settings) -> dict:
         "parser_version": settings.PARSER_VERSION,
         "line_configured": bool(settings.LINE_CHANNEL_ACCESS_TOKEN and settings.LINE_USER_ID),
         "log_level": settings.LOG_LEVEL,
+        "mcp_enabled": settings.MCP_ENABLED,
+        "mcp_transport": settings.MCP_TRANSPORT,
+        "mcp_host": settings.MCP_HOST,
+        "mcp_port": settings.MCP_PORT,
+        "mcp_owner_user_id": settings.MCP_OWNER_USER_ID,
+        "mcp_allow_write": settings.MCP_ALLOW_WRITE,
+        "mcp_api_token_set": bool(settings.MCP_API_TOKEN),
     }
 
 
@@ -90,7 +103,7 @@ async def get_settings_view(
     data["gmail_connected"] = token_exists(user_token_path(owner_user_id))
     data["gmail_profile_email"] = _gmail_profile_email(settings, owner_user_id)
     data["gmail_redirect_uri"] = _public_url_for(request, "gmail_oauth_callback", settings)
-    data["gmail_oauth_client_id"] = _masked_gmail_client_id(settings.GMAIL_CREDENTIALS_PATH)
+    data["gmail_oauth_client_id"] = _masked_gmail_client_id(settings.GMAIL_CLIENT_ID)
     return data
 
 
@@ -174,9 +187,10 @@ async def gmail_connect(request: Request, settings: Settings = Depends(get_setti
         authorization_url = build_authorization_url(
             redirect_uri=redirect_uri,
             state=state,
-            credentials_path=settings.GMAIL_CREDENTIALS_PATH,
+            client_id=settings.GMAIL_CLIENT_ID,
+            client_secret=settings.GMAIL_CLIENT_SECRET,
         )
-    except FileNotFoundError as e:
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     response = RedirectResponse(authorization_url, status_code=303)
@@ -201,8 +215,9 @@ async def gmail_oauth_callback(
         exchange_authorization_response(
             redirect_uri=redirect_uri,
             authorization_response=authorization_response,
-            credentials_path=settings.GMAIL_CREDENTIALS_PATH,
             token_path=user_token_path(owner_user_id),
+            client_id=settings.GMAIL_CLIENT_ID,
+            client_secret=settings.GMAIL_CLIENT_SECRET,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Gmail authorization failed: {e}") from e
@@ -219,8 +234,11 @@ async def settings_page(
     owner_user_id: int = Depends(get_current_user_id),
 ):
     safe_settings = _safe_settings(settings)
-    safe_settings["gmail_connected"] = token_exists(user_token_path(owner_user_id))
+    token_path = user_token_path(owner_user_id)
+    safe_settings["gmail_connected"] = token_exists(token_path)
     safe_settings["gmail_profile_email"] = _gmail_profile_email(settings, owner_user_id)
     safe_settings["gmail_redirect_uri"] = _public_url_for(request, "gmail_oauth_callback", settings)
-    safe_settings["gmail_oauth_client_id"] = _masked_gmail_client_id(settings.GMAIL_CREDENTIALS_PATH)
+    safe_settings["gmail_oauth_client_id"] = _masked_gmail_client_id(settings.GMAIL_CLIENT_ID)
+    safe_settings["gmail_token_path"] = str(token_path)
+    safe_settings["gmail_token_info"] = _read_token_info(token_path)
     return templates.TemplateResponse(request, "settings.html", {"settings": safe_settings})

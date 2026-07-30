@@ -11,10 +11,11 @@ from fastapi.staticfiles import StaticFiles
 from app.config import get_settings
 from app.ingestion.scheduler import start_scheduler
 from app.logging_config import configure_logging
+from app.mcp.server import _StaticTokenVerifier, mcp as mcp_server
 from app.storage import queries
 from app.storage.database import get_connection, init_db
 from app.web.auth import is_public_path, load_user_from_request, unauthenticated_response
-from app.web.routes import auth, dashboard, ingestion, mappings, settings, transactions, unknown, users
+from app.web.routes import auth, dashboard, ingestion, insurance, mappings, settings, transactions, unknown, users
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,18 @@ app = FastAPI(
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# Mount MCP server when enabled
+_mcp_settings = get_settings()
+if _mcp_settings.MCP_ENABLED:
+    if _mcp_settings.MCP_API_TOKEN:
+        mcp_server._token_verifier = _StaticTokenVerifier(_mcp_settings.MCP_API_TOKEN)
+    if _mcp_settings.MCP_TRANSPORT == "streamable-http":
+        app.mount("/mcp", mcp_server.streamable_http_app())
+        logger.info("MCP mounted at /mcp (streamable-http)")
+    else:
+        app.mount("/sse", mcp_server.sse_app(mount_path="/sse"))
+        logger.info("MCP mounted at /sse (sse)")
 
 @app.middleware("http")
 async def auth_middleware(request, call_next):
@@ -73,6 +86,8 @@ app.include_router(unknown.page_router)
 app.include_router(mappings.router)
 app.include_router(mappings.page_router)
 app.include_router(ingestion.router)
+app.include_router(insurance.router)
+app.include_router(insurance.page_router)
 app.include_router(settings.router)
 app.include_router(settings.page_router)
 app.include_router(users.router)

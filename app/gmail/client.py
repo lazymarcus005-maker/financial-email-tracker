@@ -17,17 +17,12 @@ logger = logging.getLogger(__name__)
 class GmailClient:
     """Thin wrapper around the Gmail API for searching and fetching messages."""
 
-    def __init__(self, credentials_path=None, token_path=None):
+    def __init__(self, token_path=None):
         if token_path is None:
             raise ValueError("GmailClient requires a per-user token_path")
-        self.token_path = str(token_path) if token_path is not None else None
+        self.token_path = str(token_path)
         self._profile_email: str | None = None
-        kwargs = {}
-        if credentials_path is not None:
-            kwargs["credentials_path"] = credentials_path
-        if token_path is not None:
-            kwargs["token_path"] = token_path
-        creds = get_credentials(**kwargs)
+        creds = get_credentials(token_path=token_path)
         self.service = build("gmail", "v1", credentials=creds, cache_discovery=False)
 
     def get_profile_email(self) -> str | None:

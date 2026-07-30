@@ -40,6 +40,10 @@ def _row_to_unknown(row: aiosqlite.Row) -> dict:
     return data
 
 
+def _row_to_insurance(row: aiosqlite.Row) -> dict:
+    return dict(row)
+
+
 # ---- Transactions ----------------------------------------------------------
 
 async def list_transactions(
@@ -262,6 +266,7 @@ DATA_TABLES = (
     "ingestion_state",
     "counterparty_mapping",
     "ignored_subjects",
+    "insurance_policies",
 )
 
 
@@ -575,6 +580,155 @@ async def delete_ignored_subject(
     params: list = [ignored_subject_id]
     _add_owner_filter(where, params, owner_user_id)
     await db.execute(f"DELETE FROM ignored_subjects WHERE {' AND '.join(where)}", params)
+    await db.commit()
+
+
+# ---- Insurance ---------------------------------------------------------------
+
+async def list_insurance_policies(db: aiosqlite.Connection, owner_user_id: int | None = None) -> list[dict]:
+    where: list[str] = []
+    params: list = []
+    _add_owner_filter(where, params, owner_user_id)
+    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+    cursor = await db.execute(
+        f"SELECT * FROM insurance_policies {where_sql} ORDER BY updated_at DESC, created_at DESC, id DESC",
+        params,
+    )
+    rows = await cursor.fetchall()
+    await cursor.close()
+    return [_row_to_insurance(r) for r in rows]
+
+
+async def get_insurance_policy(
+    db: aiosqlite.Connection, insurance_id: int, owner_user_id: int | None = None
+) -> dict | None:
+    where = ["id = ?"]
+    params: list = [insurance_id]
+    _add_owner_filter(where, params, owner_user_id)
+    cursor = await db.execute(f"SELECT * FROM insurance_policies WHERE {' AND '.join(where)}", params)
+    row = await cursor.fetchone()
+    await cursor.close()
+    return _row_to_insurance(row) if row else None
+
+
+async def create_insurance_policy(
+    db: aiosqlite.Connection,
+    owner_user_id: int | None = None,
+    insurer_name: str = "",
+    policy_name: str = "",
+    policy_number: str | None = None,
+    policy_type: str = "other",
+    insured_person: str | None = None,
+    logo_url: str | None = None,
+    premium_amount: float | None = None,
+    premium_frequency: str = "annual",
+    coverage_amount: float | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    renewal_date: str | None = None,
+    status: str = "active",
+    contact_phone: str | None = None,
+    contact_email: str | None = None,
+    notes: str | None = None,
+) -> dict:
+    cursor = await db.execute(
+        """
+        INSERT INTO insurance_policies (
+            owner_user_id, insurer_name, policy_name, policy_number, policy_type, insured_person,
+            logo_url, premium_amount, premium_frequency, coverage_amount, start_date, end_date,
+            renewal_date, status, contact_phone, contact_email, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            owner_user_id,
+            insurer_name,
+            policy_name,
+            policy_number,
+            policy_type,
+            insured_person,
+            logo_url,
+            premium_amount,
+            premium_frequency,
+            coverage_amount,
+            start_date,
+            end_date,
+            renewal_date,
+            status,
+            contact_phone,
+            contact_email,
+            notes,
+        ),
+    )
+    await db.commit()
+    row = await get_insurance_policy(db, int(cursor.lastrowid or 0), owner_user_id=owner_user_id)
+    return row if row else {}
+
+
+async def update_insurance_policy(
+    db: aiosqlite.Connection,
+    insurance_id: int,
+    owner_user_id: int | None = None,
+    insurer_name: str = "",
+    policy_name: str = "",
+    policy_number: str | None = None,
+    policy_type: str = "other",
+    insured_person: str | None = None,
+    logo_url: str | None = None,
+    premium_amount: float | None = None,
+    premium_frequency: str = "annual",
+    coverage_amount: float | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    renewal_date: str | None = None,
+    status: str = "active",
+    contact_phone: str | None = None,
+    contact_email: str | None = None,
+    notes: str | None = None,
+) -> None:
+    where = ["id = ?"]
+    params: list = [
+        insurer_name,
+        policy_name,
+        policy_number,
+        policy_type,
+        insured_person,
+        logo_url,
+        premium_amount,
+        premium_frequency,
+        coverage_amount,
+        start_date,
+        end_date,
+        renewal_date,
+        status,
+        contact_phone,
+        contact_email,
+        notes,
+        insurance_id,
+    ]
+    if owner_user_id is not None:
+        where.append("owner_user_id = ?")
+        params.append(owner_user_id)
+    await db.execute(
+        f"""
+        UPDATE insurance_policies
+        SET insurer_name = ?, policy_name = ?, policy_number = ?, policy_type = ?, insured_person = ?,
+            logo_url = ?, premium_amount = ?, premium_frequency = ?, coverage_amount = ?,
+            start_date = ?, end_date = ?, renewal_date = ?, status = ?, contact_phone = ?,
+            contact_email = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE {' AND '.join(where)}
+        """,
+        params,
+    )
+    await db.commit()
+
+
+async def delete_insurance_policy(
+    db: aiosqlite.Connection, insurance_id: int, owner_user_id: int | None = None
+) -> None:
+    where = ["id = ?"]
+    params: list = [insurance_id]
+    _add_owner_filter(where, params, owner_user_id)
+    await db.execute(f"DELETE FROM insurance_policies WHERE {' AND '.join(where)}", params)
     await db.commit()
 
 

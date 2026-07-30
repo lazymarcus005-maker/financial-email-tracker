@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Insurance - Financial Email Tracker{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between mb-6">
+    <div>
+        <h1 class="text-xl font-semibold text-foreground">Insurance</h1>
+        <p class="text-sm text-muted-foreground mt-1">Store and edit all insurance policies, including logo URLs, renewal dates, and contact info.</p>
+    </div>
+</div>
+
+<div class="card mb-6">
+    <div class="card-body">
+        <h2 class="text-sm font-medium text-foreground mb-4">Add Insurance Policy</h2>
+        <form
+            id="insurance-create-form"
+            class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+            hx-post="/api/insurance"
+            hx-target="#insurance-cards"
+            hx-swap="outerHTML"
+            hx-disabled-elt="find button"
+            hx-on::after-request="this.reset()"
+        >
+            <div>
+                <label class="label" for="new-insurer-name">Insurer Name</label>
+                <input id="new-insurer-name" name="insurer_name" class="input" required>
+            </div>
+            <div>
+                <label class="label" for="new-policy-name">Policy Name</label>
+                <input id="new-policy-name" name="policy_name" class="input" required>
+            </div>
+            <div>
+                <label class="label" for="new-policy-number">Policy Number</label>
+                <input id="new-policy-number" name="policy_number" class="input" placeholder="Optional">
+            </div>
+            <div>
+                <label class="label" for="new-policy-type">Policy Type</label>
+                <select id="new-policy-type" name="policy_type" class="input">
+                    {% for value in insurance_types %}
+                    <option value="{{ value }}">{{ value|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="label" for="new-status">Status</label>
+                <select id="new-status" name="status" class="input">
+                    {% for value in insurance_statuses %}
+                    <option value="{{ value }}" {% if value == 'active' %}selected{% endif %}>{{ value|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="label" for="new-premium-frequency">Premium Frequency</label>
+                <select id="new-premium-frequency" name="premium_frequency" class="input">
+                    {% for value in premium_frequencies %}
+                    <option value="{{ value }}" {% if value == 'annual' %}selected{% endif %}>{{ value|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="label" for="new-insured-person">Insured Person</label>
+                <input id="new-insured-person" name="insured_person" class="input" placeholder="Optional">
+            </div>
+            <div>
+                <label class="label" for="new-logo-url">Logo URL</label>
+                <input id="new-logo-url" name="logo_url" class="input" placeholder="https://...">
+            </div>
+            <div>
+                <label class="label" for="new-premium-amount">Premium Amount</label>
+                <input id="new-premium-amount" name="premium_amount" type="number" step="0.01" class="input" placeholder="0.00">
+            </div>
+            <div>
+                <label class="label" for="new-coverage-amount">Coverage Amount</label>
+                <input id="new-coverage-amount" name="coverage_amount" type="number" step="0.01" class="input" placeholder="0.00">
+            </div>
+            <div>
+                <label class="label" for="new-start-date">Start Date</label>
+                <input id="new-start-date" name="start_date" type="date" class="input">
+            </div>
+            <div>
+                <label class="label" for="new-end-date">End Date</label>
+                <input id="new-end-date" name="end_date" type="date" class="input">
+            </div>
+            <div>
+                <label class="label" for="new-renewal-date">Renewal Date</label>
+                <input id="new-renewal-date" name="renewal_date" type="date" class="input">
+            </div>
+            <div>
+                <label class="label" for="new-contact-phone">Contact Phone</label>
+                <input id="new-contact-phone" name="contact_phone" class="input" placeholder="Optional">
+            </div>
+            <div>
+                <label class="label" for="new-contact-email">Contact Email</label>
+                <input id="new-contact-email" name="contact_email" type="email" class="input" placeholder="Optional">
+            </div>
+            <div class="md:col-span-2 xl:col-span-3">
+                <label class="label" for="new-notes">Notes</label>
+                <textarea id="new-notes" name="notes" class="input min-h-24" placeholder="Optional"></textarea>
+            </div>
+            <div class="md:col-span-2 xl:col-span-3 flex justify-end">
+                <button type="submit" class="btn btn-primary btn-md">Add Policy</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% include "partials/insurance_cards.html" %}
+{% endblock %}

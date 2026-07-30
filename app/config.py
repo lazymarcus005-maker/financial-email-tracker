@@ -34,9 +34,13 @@ class Settings:
     """Resolved application settings."""
 
     GMAIL_QUERY: str = ""
-    GMAIL_CREDENTIALS_PATH: str = "secrets/credentials.json"
+    GMAIL_CLIENT_ID: str | None = None
+    GMAIL_CLIENT_SECRET: str | None = None
 
-    DATABASE_PATH: str = "data/finance.db"
+    DATABASE_BACKEND: str = "aiosqlite"  # "aiosqlite" | "postgres"
+    DATABASE_PATH: str = "data/finance.db"  # used when DATABASE_BACKEND == "aiosqlite"
+    DATABASE_URL: str | None = None  # postgres: postgresql://user:pass@host:port/db
+    DATABASE_SSL: bool = True  # used when DATABASE_BACKEND == "postgres" - keep True except for known dev-only endpoints
 
     SCHEDULE: list = field(default_factory=list)
     TIMEZONE: str = "Asia/Bangkok"
@@ -62,11 +66,14 @@ class Settings:
     LOG_FORMAT: str = "json"
 
     MCP_ENABLED: bool = False
-    MCP_OWNER_USER_ID: str | None = None
+    MCP_OWNER_USER_ID: int | None = None
     MCP_ALLOW_WRITE: bool = False
     MCP_ALLOW_SEND: bool = False
     MCP_EXPOSE_RAW_EMAIL: bool = False
-    MCP_API_TOKEN: str | None = None
+    MCP_TRANSPORT: str = "stdio"  # stdio | sse | streamable-http
+    MCP_HOST: str = "0.0.0.0"
+    MCP_PORT: int = 8001
+    MCP_API_TOKEN: str | None = None  # required when transport != stdio
 
 
 def _coerce(raw_value: str, field_type) -> object:

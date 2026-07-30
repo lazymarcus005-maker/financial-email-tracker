@@ -2,10 +2,14 @@
 
 # Gmail
 GMAIL_QUERY: "{from:KPLUS@kasikornbank.com from:admin@krungsri.com from:scbeasynet@scb.co.th from:LHBYou@lhbank.co.th} newer_than:90d -subject:\"Login Notification\""
-GMAIL_CREDENTIALS_PATH: "secrets/credentials.json"
+GMAIL_CLIENT_ID: "{{ env.GMAIL_CLIENT_ID }}"
+GMAIL_CLIENT_SECRET: "{{ env.GMAIL_CLIENT_SECRET }}"
 
 # Database
-DATABASE_PATH: "data/finance.db"
+DATABASE_BACKEND: "aiosqlite"          # "aiosqlite" (local file) | "postgres" (PostgreSQL server)
+DATABASE_PATH: "data/finance.db"       # used when DATABASE_BACKEND == "aiosqlite"
+DATABASE_URL: "{{ env.DATABASE_URL }}"             # used when DATABASE_BACKEND == "postgres", e.g. postgresql://user:pass@host:5432/db
+DATABASE_SSL: "{{ env.DATABASE_SSL }}"
 
 # Scheduler (Cron times in Asia/Bangkok)
 SCHEDULE:

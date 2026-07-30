@@ -5,12 +5,19 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - finance_data:/app/data
-      - ./secrets:/app/secrets
+      - /opt/finance/data:/app/data
+      - /opt/finance/secrets:/app/secrets
     environment:
+      # Default backend is the local SQLite file. Set DATABASE_BACKEND=postgres
+      # (DATABASE_URL=postgresql://user:pass@host:5432/db) in .env to switch.
+      # DATABASE_SSL defaults to true - only disable it against an endpoint you
+      # know has no TLS and accept the risk.
+      - DATABASE_BACKEND=${DATABASE_BACKEND:-aiosqlite}
       - DATABASE_PATH=${DATABASE_PATH:-/app/data/finance.db}
-      - GMAIL_CREDENTIALS_PATH=${GMAIL_CREDENTIALS_PATH:-/app/secrets/credentials.json}
-      - GMAIL_TOKEN_PATH=${GMAIL_TOKEN_PATH:-/app/secrets/token.json}
+      - DATABASE_URL=${DATABASE_URL:-}
+      - DATABASE_SSL=${DATABASE_SSL:-true}
+      - GMAIL_CLIENT_ID=${GMAIL_CLIENT_ID:-}
+      - GMAIL_CLIENT_SECRET=${GMAIL_CLIENT_SECRET:-}
       - LINE_CHANNEL_ACCESS_TOKEN=${LINE_CHANNEL_ACCESS_TOKEN:-}
       - LINE_USER_ID=${LINE_USER_ID:-}
       - AI_ENABLED=${AI_ENABLED:-false}
@@ -69,7 +76,6 @@ services:
       - ai
 
 volumes:
-  finance_data:
   ollama_data:
 
 networks:
