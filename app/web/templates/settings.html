@@ -41,6 +41,28 @@
                 <dt class="text-xs text-muted-foreground">OAuth Client ID</dt>
                 <dd class="text-sm text-foreground mt-0.5 break-all">{{ settings.gmail_oauth_client_id }}</dd>
             </div>
+            <div class="sm:col-span-2">
+                <dt class="text-xs text-muted-foreground">Token File Path</dt>
+                <dd class="text-sm text-foreground mt-0.5 break-all font-mono">{{ settings.gmail_token_path }}</dd>
+            </div>
+            {% if settings.gmail_token_info %}
+            <div>
+                <dt class="text-xs text-muted-foreground">Token Expiry</dt>
+                <dd class="text-sm text-foreground mt-0.5">{{ settings.gmail_token_info.expiry or '-' }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">Refresh Token</dt>
+                <dd class="text-sm mt-0.5">
+                    <span class="badge {% if settings.gmail_token_info.has_refresh_token %}badge-success{% else %}badge-warning{% endif %}">
+                        {{ 'Present' if settings.gmail_token_info.has_refresh_token else 'Missing' }}
+                    </span>
+                </dd>
+            </div>
+            <div class="sm:col-span-2">
+                <dt class="text-xs text-muted-foreground">Scopes</dt>
+                <dd class="text-sm text-foreground mt-0.5 break-all font-mono">{{ settings.gmail_token_info.scopes | join(', ') if settings.gmail_token_info.scopes else '-' }}</dd>
+            </div>
+            {% endif %}
         </dl>
     </div>
 </div>
