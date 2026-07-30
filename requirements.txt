@@ -23,7 +23,7 @@ apscheduler==3.10.4
 pyyaml==6.0.1
 
 # MCP (Model Context Protocol) - local stdio server for AI agents
-mcp>=1.26,<2
+mcp>=1.27.0,<2
 
 # Utilities
 pydantic==2.13.4
