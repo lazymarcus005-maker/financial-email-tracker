@@ -3,7 +3,20 @@
 {% block title %}Settings - Financial Email Tracker{% endblock %}
 
 {% block content %}
-<h1 class="text-xl font-semibold text-foreground mb-6">Settings</h1>
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-xl font-semibold text-foreground">Settings</h1>
+</div>
+
+{# ── Tabs ── #}
+<div class="flex gap-1 border-b border-border mb-6">
+    <button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors" data-tab="settings" onclick="switchTab('settings')">Settings</button>
+    <button class="tab-btn px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors" data-tab="mcp" onclick="switchTab('mcp')">MCP</button>
+</div>
+
+{# ══════════════════════════════════════════════════════════════ #}
+{# Tab: Settings                                                  #}
+{# ══════════════════════════════════════════════════════════════ #}
+<div id="tab-settings">
 
 <div class="card mb-6">
     <div class="card-body">
@@ -15,8 +28,9 @@
                 </span>
             </div>
             <div class="flex flex-wrap items-center gap-2">
+                {% if not settings.gmail_connected %}
                 <a href="/gmail/connect" class="btn btn-primary btn-md">Connect Gmail</a>
-                {% if settings.gmail_connected %}
+                {% else %}
                 <button
                     class="btn btn-outline btn-md"
                     hx-post="/api/gmail/disconnect"
@@ -127,19 +141,213 @@
                 hx-disabled-elt="this"
             >Clear All Data</button>
             <a href="/api/settings/export" class="btn btn-outline btn-md">Export</a>
-            <form
-                class="flex flex-wrap items-center gap-2"
-                hx-post="/api/settings/import"
-                hx-encoding="multipart/form-data"
-                hx-target="#settings-data-status"
-                hx-swap="outerHTML"
-                hx-confirm="Importing will replace current runtime data. Continue?"
-            >
-                <input type="file" name="file" accept="application/json,.json" class="input" required>
-                <button type="submit" class="btn btn-primary btn-md" hx-disabled-elt="this">Import</button>
-            </form>
+            <div id="import-area">
+                <button class="btn btn-outline btn-md" type="button" onclick="showImportForm()">Import</button>
+            </div>
         </div>
         <div id="settings-data-status" class="text-sm text-muted-foreground mt-3">Export before clearing or importing if you need a restore point.</div>
     </div>
 </div>
+
+</div>{# /tab-settings #}
+
+{# ══════════════════════════════════════════════════════════════ #}
+{# Tab: MCP                                                       #}
+{# ══════════════════════════════════════════════════════════════ #}
+<div id="tab-mcp" class="hidden">
+
+{# Current MCP config status #}
+<div class="card mb-6">
+    <div class="card-body">
+        <h2 class="text-sm font-medium text-foreground mb-3">MCP Server Status</h2>
+        <dl class="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3">
+            <div>
+                <dt class="text-xs text-muted-foreground">Enabled</dt>
+                <dd class="text-sm mt-0.5">
+                    <span class="badge {% if settings.mcp_enabled %}badge-success{% else %}badge-neutral{% endif %}">
+                        {{ 'Yes' if settings.mcp_enabled else 'No' }}
+                    </span>
+                </dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">Transport</dt>
+                <dd class="text-sm text-foreground mt-0.5 font-mono">{{ settings.mcp_transport }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">Owner User ID</dt>
+                <dd class="text-sm text-foreground mt-0.5 font-mono">{{ settings.mcp_owner_user_id or 'not set' }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">Allow Write</dt>
+                <dd class="text-sm mt-0.5">
+                    <span class="badge {% if settings.mcp_allow_write %}badge-warning{% else %}badge-neutral{% endif %}">
+                        {{ 'Yes' if settings.mcp_allow_write else 'No (read-only)' }}
+                    </span>
+                </dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">HTTP Host:Port</dt>
+                <dd class="text-sm text-foreground mt-0.5 font-mono">{{ settings.mcp_host }}:{{ settings.mcp_port }}</dd>
+            </div>
+            <div>
+                <dt class="text-xs text-muted-foreground">API Token</dt>
+                <dd class="text-sm mt-0.5">
+                    <span class="badge {% if settings.mcp_api_token_set %}badge-success{% else %}badge-neutral{% endif %}">
+                        {{ 'Set' if settings.mcp_api_token_set else 'Not set' }}
+                    </span>
+                </dd>
+            </div>
+        </dl>
+    </div>
+</div>
+
+{# Available tools #}
+<div class="card mb-6">
+    <div class="card-body">
+        <h2 class="text-sm font-medium text-foreground mb-3">Available Tools (Phase 1 — Read Only)</h2>
+        <div class="space-y-2">
+            {% for tool in [
+                ('get_dashboard_summary', 'สรุปภาพรวมวันนี้ — รายรับ รายจ่าย จำนวน transaction, uncategorized, last sync'),
+                ('search_transactions', 'ค้นหา/filter รายการ — รองรับ date_from, date_to, category, direction, search, page'),
+                ('get_transaction_detail', 'ดูรายละเอียด transaction ตาม database id'),
+                ('list_unknown_emails', 'ดูอีเมลที่ parse ไม่ได้ — กรองด้วย status: pending / ignored'),
+                ('get_daily_summary', 'สรุปรายวัน — คืนทั้ง structured data และ LINE message text'),
+            ] %}
+            <div class="flex gap-3 py-2 border-b border-border last:border-0">
+                <code class="text-xs font-mono text-foreground bg-muted px-2 py-1 rounded shrink-0 self-start">{{ tool[0] }}</code>
+                <span class="text-sm text-muted-foreground">{{ tool[1] }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{# Setup: stdio #}
+<div class="card mb-6">
+    <div class="card-body">
+        <h2 class="text-sm font-medium text-foreground mb-1">Setup — stdio</h2>
+        <p class="text-xs text-muted-foreground mb-3">ใช้กับ local agent เช่น Claude Desktop, Cursor, Windsurf ที่รันบนเครื่องเดียวกับ server</p>
+        <h3 class="text-xs font-medium text-foreground mb-2">Environment variables ที่ต้องตั้ง</h3>
+        <pre class="bg-muted rounded-md p-3 text-xs font-mono overflow-x-auto mb-4">MCP_OWNER_USER_ID=<span class="text-amber-600">1</span>
+DATABASE_PATH=<span class="text-amber-600">data/finance.db</span>
+<span class="text-muted-foreground"># หรือ DATABASE_BACKEND=postgres + DATABASE_URL=...</span></pre>
+        <h3 class="text-xs font-medium text-foreground mb-2">Claude Desktop / Cursor — <code class="font-mono">mcp.json</code> หรือ <code class="font-mono">claude_desktop_config.json</code></h3>
+        <pre class="bg-muted rounded-md p-3 text-xs font-mono overflow-x-auto">{
+  "mcpServers": {
+    "financial-email-tracker": {
+      "command": "python",
+      "args": ["-m", "app.mcp.server"],
+      "env": {
+        "MCP_OWNER_USER_ID": "<span class="text-amber-600">{{ settings.mcp_owner_user_id or '1' }}</span>",
+        "MCP_TRANSPORT": "stdio",
+        "DATABASE_PATH": "<span class="text-amber-600">{{ settings.database_path }}</span>"
+      }
+    }
+  }
+}</pre>
+    </div>
+</div>
+
+{# Setup: SSE #}
+<div class="card mb-6">
+    <div class="card-body">
+        <h2 class="text-sm font-medium text-foreground mb-1">Setup — SSE (HTTP)</h2>
+        <p class="text-xs text-muted-foreground mb-3">ใช้กับ remote agent หรือ agent ที่ต่อผ่าน HTTP — ต้องตั้ง <code class="font-mono">MCP_API_TOKEN</code></p>
+        <h3 class="text-xs font-medium text-foreground mb-2">รันด้วย environment variables</h3>
+        <pre class="bg-muted rounded-md p-3 text-xs font-mono overflow-x-auto mb-4">MCP_TRANSPORT=sse \
+MCP_HOST=0.0.0.0 \
+MCP_PORT=<span class="text-amber-600">{{ settings.mcp_port }}</span> \
+MCP_API_TOKEN=<span class="text-amber-600">your-secret-token</span> \
+MCP_OWNER_USER_ID=<span class="text-amber-600">{{ settings.mcp_owner_user_id or '1' }}</span> \
+python -m app.mcp.server</pre>
+        <h3 class="text-xs font-medium text-foreground mb-2">Endpoint & Auth header</h3>
+        <pre class="bg-muted rounded-md p-3 text-xs font-mono overflow-x-auto">Endpoint : http://&lt;host&gt;:{{ settings.mcp_port }}/sse
+Header   : Authorization: Bearer &lt;your-secret-token&gt;</pre>
+    </div>
+</div>
+
+{# Setup: streamable-http #}
+<div class="card mb-6">
+    <div class="card-body">
+        <h2 class="text-sm font-medium text-foreground mb-1">Setup — Streamable HTTP</h2>
+        <p class="text-xs text-muted-foreground mb-3">HTTP transport แบบ MCP spec 2025-03-26 รองรับ stateless mode</p>
+        <pre class="bg-muted rounded-md p-3 text-xs font-mono overflow-x-auto mb-4">MCP_TRANSPORT=streamable-http \
+MCP_HOST=0.0.0.0 \
+MCP_PORT=<span class="text-amber-600">{{ settings.mcp_port }}</span> \
+MCP_API_TOKEN=<span class="text-amber-600">your-secret-token</span> \
+MCP_OWNER_USER_ID=<span class="text-amber-600">{{ settings.mcp_owner_user_id or '1' }}</span> \
+python -m app.mcp.server</pre>
+        <pre class="bg-muted rounded-md p-3 text-xs font-mono overflow-x-auto">Endpoint : http://&lt;host&gt;:{{ settings.mcp_port }}/mcp
+Header   : Authorization: Bearer &lt;your-secret-token&gt;</pre>
+    </div>
+</div>
+
+{# docker-compose snippet #}
+<div class="card">
+    <div class="card-body">
+        <h2 class="text-sm font-medium text-foreground mb-1">docker-compose — เพิ่ม MCP service</h2>
+        <p class="text-xs text-muted-foreground mb-3">เพิ่ม service แยกใน <code class="font-mono">docker-compose.yml</code> เพื่อรัน MCP server ควบคู่กับ web app</p>
+        <pre class="bg-muted rounded-md p-3 text-xs font-mono overflow-x-auto">  mcp:
+    build: .
+    command: python -m app.mcp.server
+    ports:
+      - "<span class="text-amber-600">{{ settings.mcp_port }}</span>:<span class="text-amber-600">{{ settings.mcp_port }}</span>"
+    volumes:
+      - /opt/finance/data:/app/data
+      - /opt/finance/secrets:/app/secrets
+    environment:
+      - DATABASE_BACKEND=${DATABASE_BACKEND:-aiosqlite}
+      - DATABASE_PATH=${DATABASE_PATH:-/app/data/finance.db}
+      - MCP_TRANSPORT=sse
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=<span class="text-amber-600">{{ settings.mcp_port }}</span>
+      - MCP_API_TOKEN=${MCP_API_TOKEN}
+      - MCP_OWNER_USER_ID=${MCP_OWNER_USER_ID:-1}
+    restart: unless-stopped
+    networks:
+      - finance</pre>
+    </div>
+</div>
+
+</div>{# /tab-mcp #}
+
+<script>
+function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+        var active = btn.dataset.tab === name;
+        btn.classList.toggle('border-foreground', active);
+        btn.classList.toggle('text-foreground', active);
+        btn.classList.toggle('border-transparent', !active);
+        btn.classList.toggle('text-muted-foreground', !active);
+    });
+    document.querySelectorAll('[id^="tab-"]').forEach(function(panel) {
+        panel.classList.toggle('hidden', panel.id !== 'tab-' + name);
+    });
+}
+
+function showImportForm() {
+    document.getElementById('import-area').innerHTML = `
+        <form
+            class="flex flex-wrap items-center gap-2"
+            hx-post="/api/settings/import"
+            hx-encoding="multipart/form-data"
+            hx-target="#settings-data-status"
+            hx-swap="outerHTML"
+            hx-confirm="Importing will replace current runtime data. Continue?"
+        >
+            <input type="file" name="file" accept="application/json,.json" class="input" required>
+            <button type="submit" class="btn btn-primary btn-md">Upload</button>
+            <button type="button" class="btn btn-ghost btn-md" onclick="hideImportForm()">Cancel</button>
+        </form>`;
+    htmx.process(document.getElementById('import-area'));
+}
+
+function hideImportForm() {
+    document.getElementById('import-area').innerHTML =
+        '<button class="btn btn-outline btn-md" type="button" onclick="showImportForm()">Import</button>';
+}
+
+// Activate default tab
+switchTab('settings');
+</script>
 {% endblock %}

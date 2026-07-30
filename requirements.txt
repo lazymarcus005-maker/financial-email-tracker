@@ -37,5 +37,8 @@ pytest-cov==7.0.0
 # Logging
 python-json-logger==2.0.7
 
+# MCP
+mcp>=1.0,<2
+
 # Optional: AI
 # ollama==0.1.0  # Uncomment if using local Ollama for categorization

@@ -65,6 +65,14 @@ class Settings:
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
 
+    MCP_ENABLED: bool = False
+    MCP_OWNER_USER_ID: int | None = None
+    MCP_ALLOW_WRITE: bool = False
+    MCP_TRANSPORT: str = "stdio"   # stdio | sse | streamable-http
+    MCP_HOST: str = "0.0.0.0"
+    MCP_PORT: int = 8001
+    MCP_API_TOKEN: str | None = None  # required when transport != stdio
+
 
 def _coerce(raw_value: str, field_type) -> object:
     if field_type is bool:

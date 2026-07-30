@@ -83,6 +83,13 @@ def _safe_settings(settings: Settings) -> dict:
         "parser_version": settings.PARSER_VERSION,
         "line_configured": bool(settings.LINE_CHANNEL_ACCESS_TOKEN and settings.LINE_USER_ID),
         "log_level": settings.LOG_LEVEL,
+        "mcp_enabled": settings.MCP_ENABLED,
+        "mcp_transport": settings.MCP_TRANSPORT,
+        "mcp_host": settings.MCP_HOST,
+        "mcp_port": settings.MCP_PORT,
+        "mcp_owner_user_id": settings.MCP_OWNER_USER_ID,
+        "mcp_allow_write": settings.MCP_ALLOW_WRITE,
+        "mcp_api_token_set": bool(settings.MCP_API_TOKEN),
     }
 
 
