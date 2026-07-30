@@ -102,7 +102,7 @@ def _line_summary_button_html(label: str = "Send LINE Summary", status_text: str
         status_html = f'<span class="text-xs text-muted-foreground">{html.escape(status_text)}</span>'
     return f"""<div id="line-summary-btn" class="flex items-center gap-2">
     <button
-        class="btn btn-secondary btn-md"
+        class="btn btn-outline btn-md"
         hx-post="/api/line/summary"
         hx-swap="outerHTML"
         hx-target="#line-summary-btn"
