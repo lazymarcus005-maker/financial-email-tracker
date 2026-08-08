@@ -5,11 +5,12 @@ import logging
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 
+from google.auth.exceptions import RefreshError
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from app.gmail import EmailMessage
-from app.gmail.authorize import get_credentials
+from app.gmail.authorize import GmailReauthorizationRequired, get_credentials, refresh_credentials
 
 logger = logging.getLogger(__name__)
 
@@ -22,16 +23,45 @@ class GmailClient:
             raise ValueError("GmailClient requires a per-user token_path")
         self.token_path = str(token_path)
         self._profile_email: str | None = None
-        creds = get_credentials(token_path=token_path)
-        self.service = build("gmail", "v1", credentials=creds, cache_discovery=False)
+        self._credentials = get_credentials(token_path=token_path)
+        self.service = build("gmail", "v1", credentials=self._credentials, cache_discovery=False)
+
+    @staticmethod
+    def _is_unauthorized(error: HttpError) -> bool:
+        return getattr(error.resp, "status", None) == 401
+
+    def _execute(self, request_factory):
+        """Execute a Gmail request, refreshing once if its access token expired.
+
+        google-auth normally refreshes before a request. The retry handles the
+        small race where the access token expires after that check but before
+        Gmail receives the request.
+        """
+        try:
+            return request_factory().execute()
+        except RefreshError as exc:
+            # google-auth may refresh immediately before sending the request;
+            # normalize that failure just like an explicit refresh failure.
+            raise GmailReauthorizationRequired(
+                "Gmail authorization has expired or was revoked. Reconnect Gmail in Settings."
+            ) from exc
+        except HttpError as exc:
+            if not self._is_unauthorized(exc):
+                raise
+
+            self._credentials = refresh_credentials(self._credentials, self.token_path)
+            self.service = build("gmail", "v1", credentials=self._credentials, cache_discovery=False)
+            return request_factory().execute()
 
     def get_profile_email(self) -> str | None:
         """Return the Gmail address behind the current OAuth token."""
         if self._profile_email is not None:
             return self._profile_email
         try:
-            profile = self.service.users().getProfile(userId="me").execute()
+            profile = self._execute(lambda: self.service.users().getProfile(userId="me"))
             self._profile_email = profile.get("emailAddress")
+        except GmailReauthorizationRequired:
+            raise
         except Exception as e:
             logger.warning("Could not read Gmail profile for token_path=%s: %s", self.token_path, e)
             self._profile_email = None
@@ -45,8 +75,8 @@ class GmailClient:
 
         while True:
             try:
-                response = (
-                    self.service.users()
+                response = self._execute(
+                    lambda: self.service.users()
                     .messages()
                     .list(
                         userId="me",
@@ -54,7 +84,6 @@ class GmailClient:
                         pageToken=page_token,
                         maxResults=min(500, max_results - len(message_ids)),
                     )
-                    .execute()
                 )
             except HttpError as e:
                 logger.error(f"Gmail search failed for query={query!r}: {e}")
@@ -77,11 +106,10 @@ class GmailClient:
 
     def get_message(self, message_id: str) -> EmailMessage:
         """Fetch a single message and convert it into an EmailMessage."""
-        raw = (
-            self.service.users()
+        raw = self._execute(
+            lambda: self.service.users()
             .messages()
             .get(userId="me", id=message_id, format="full")
-            .execute()
         )
         return _to_email_message(raw)
 

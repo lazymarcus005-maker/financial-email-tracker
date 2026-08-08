@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from app.config import Settings, get_settings
 from app.gmail.authorize import (
+    GmailReauthorizationRequired,
     build_authorization_url,
     exchange_authorization_response,
     token_exists,
@@ -63,11 +64,15 @@ def _read_token_info(token_path: Path) -> dict | None:
         return None
 
 
-def _gmail_profile_email(settings: Settings, owner_user_id: int) -> str | None:
+def _gmail_status(owner_user_id: int) -> tuple[bool, str | None]:
     token_path = user_token_path(owner_user_id)
     if not token_exists(token_path):
-        return None
-    return GmailClient(token_path=token_path).get_profile_email()
+        return False, None
+    try:
+        return True, GmailClient(token_path=token_path).get_profile_email()
+    except GmailReauthorizationRequired:
+        logger.info("Gmail authorization requires reconnect for user %s", owner_user_id)
+        return False, None
 
 
 def _safe_settings(settings: Settings) -> dict:
@@ -100,8 +105,7 @@ async def get_settings_view(
     owner_user_id: int = Depends(get_current_user_id),
 ):
     data = _safe_settings(settings)
-    data["gmail_connected"] = token_exists(user_token_path(owner_user_id))
-    data["gmail_profile_email"] = _gmail_profile_email(settings, owner_user_id)
+    data["gmail_connected"], data["gmail_profile_email"] = _gmail_status(owner_user_id)
     data["gmail_redirect_uri"] = _public_url_for(request, "gmail_oauth_callback", settings)
     data["gmail_oauth_client_id"] = _masked_gmail_client_id(settings.GMAIL_CLIENT_ID)
     return data
@@ -162,8 +166,8 @@ async def gmail_status(
     owner_user_id: int = Depends(get_current_user_id),
 ):
     token_path = user_token_path(owner_user_id)
-    connected = token_exists(token_path)
-    return {"connected": connected, "profile_email": _gmail_profile_email(settings, owner_user_id)}
+    connected, profile_email = _gmail_status(owner_user_id)
+    return {"connected": connected, "profile_email": profile_email}
 
 
 @router.post("/gmail/disconnect")
@@ -235,8 +239,7 @@ async def settings_page(
 ):
     safe_settings = _safe_settings(settings)
     token_path = user_token_path(owner_user_id)
-    safe_settings["gmail_connected"] = token_exists(token_path)
-    safe_settings["gmail_profile_email"] = _gmail_profile_email(settings, owner_user_id)
+    safe_settings["gmail_connected"], safe_settings["gmail_profile_email"] = _gmail_status(owner_user_id)
     safe_settings["gmail_redirect_uri"] = _public_url_for(request, "gmail_oauth_callback", settings)
     safe_settings["gmail_oauth_client_id"] = _masked_gmail_client_id(settings.GMAIL_CLIENT_ID)
     safe_settings["gmail_token_path"] = str(token_path)

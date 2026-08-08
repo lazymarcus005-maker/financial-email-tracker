@@ -16,6 +16,10 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 USER_TOKEN_ROOT = Path("secrets/users")
 
 
+class GmailReauthorizationRequired(RuntimeError):
+    """Raised when Google will not accept the stored refresh token anymore."""
+
+
 def build_client_config(client_id: str, client_secret: str) -> dict:
     """Build the OAuth client config dict from env-provided secrets.
 
@@ -73,16 +77,32 @@ def get_credentials(
         return creds
 
     if creds and creds.expired and creds.refresh_token:
-        try:
-            logger.info("Refreshing expired Gmail OAuth token")
-            creds.refresh(Request())
-            _save_token(creds, token_path)
-            return creds
-        except RefreshError:
-            logger.warning("Token refresh failed for %s", token_path)
-            raise
+        return refresh_credentials(creds, token_path)
 
-    raise RuntimeError(f"Gmail OAuth token at {token_path} is invalid. Reconnect Gmail in Settings.")
+    raise GmailReauthorizationRequired(
+        f"Gmail OAuth token at {token_path} is invalid. Reconnect Gmail in Settings."
+    )
+
+
+def refresh_credentials(creds: Credentials, token_path: Path | str) -> Credentials:
+    """Refresh credentials and persist the new access token.
+
+    Access tokens expire regularly and can be refreshed without user input. A
+    ``RefreshError`` with ``invalid_grant`` means the refresh token itself was
+    revoked or expired; Google does not provide a silent recovery path for
+    that case, so callers can send the user through OAuth again.
+    """
+    token_path = Path(token_path)
+    try:
+        logger.info("Refreshing expired Gmail OAuth token")
+        creds.refresh(Request())
+        _save_token(creds, token_path)
+        return creds
+    except RefreshError as exc:
+        logger.warning("Gmail OAuth token refresh failed for %s: %s", token_path, exc)
+        raise GmailReauthorizationRequired(
+            "Gmail authorization has expired or was revoked. Reconnect Gmail in Settings."
+        ) from exc
 
 
 def _save_token(creds: Credentials, token_path: Path) -> None:

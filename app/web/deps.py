@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.classification.engine import CategoryEngine
 from app.config import get_settings
-from app.gmail.authorize import token_exists, user_token_path
+from app.gmail.authorize import GmailReauthorizationRequired, token_exists, user_token_path
 from app.gmail.client import GmailClient
 from app.parsers.registry import ParserRegistry
 from app.storage.database import get_connection
@@ -91,7 +91,10 @@ def get_gmail_client(request: Request) -> GmailClient:
     token_path = user_token_path(user_id)
     if not token_exists(token_path):
         raise HTTPException(status_code=400, detail="Connect Gmail in Settings before running this action")
-    return GmailClient(token_path=token_path)
+    try:
+        return GmailClient(token_path=token_path)
+    except GmailReauthorizationRequired as e:
+        raise HTTPException(status_code=401, detail=str(e)) from e
 
 
 def get_optional_gmail_client(request: Request) -> GmailClient | None:
