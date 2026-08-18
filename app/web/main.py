@@ -62,19 +62,32 @@ async def auth_middleware(request, call_next):
     if is_public_path(request.url.path):
         return await call_next(request)
 
-    db = await get_connection()
-    try:
-        has_users = await queries.count_users(db) > 0
-    finally:
-        await db.close()
+    # Cached "is the users table non-empty?" check - the count only changes
+    # when `/setup` or `/api/users` POST runs (we invalidate it in those
+    # handlers). Without this cache every non-public request opened a
+    # SQLite connection just to count zero rows.
+    cached = getattr(app.state, "has_users", None)
+    if cached is None:
+        db = await get_connection()
+        try:
+            cached = await queries.count_users(db) > 0
+        finally:
+            await db.close()
+        app.state.has_users = cached
 
-    if not has_users:
+    if not cached:
         if request.url.path.startswith("/api"):
             return JSONResponse({"detail": "Setup required"}, status_code=409)
         return RedirectResponse("/setup", status_code=303)
     if request.state.current_user is None:
         return unauthenticated_response(request)
     return await call_next(request)
+
+
+def invalidate_user_count_cache() -> None:
+    """Drop the cached `has_users` flag - call after any path that creates the first user."""
+    if hasattr(app.state, "has_users"):
+        del app.state.has_users
 
 
 app.include_router(auth.router)

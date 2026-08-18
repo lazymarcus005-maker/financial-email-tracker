@@ -100,4 +100,9 @@ async def setup(
     response = RedirectResponse("/", status_code=303)
     await queries.claim_unowned_runtime_data(db, user["id"])
     set_login_cookie(response, user["id"])
+    # Drop the auth-middleware's cached `has_users` so subsequent requests
+    # don't keep re-running `SELECT COUNT(*) FROM users` for the rest of
+    # this process's life.
+    from app.web.main import invalidate_user_count_cache
+    invalidate_user_count_cache()
     return response

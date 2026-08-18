@@ -355,9 +355,34 @@ async def test_run_ingestion_rejects_arbitrary_window(db_connection, monkeypatch
 @pytest.mark.asyncio
 async def test_run_ingestion_requires_connected_gmail_token(db_connection, monkeypatch, tmp_path):
     monkeypatch.setattr(authorize, "USER_TOKEN_ROOT", tmp_path / "gmail-users")
-    _patch_settings(monkeypatch, MCP_ALLOW_WRITE=True)
+    # Owner must exist + be active for ingestion to reach the Gmail-token check.
+    cursor = await db_connection.execute(
+        "INSERT INTO users (email, display_name, password_hash, role, is_active) "
+        "VALUES (?, ?, ?, 'admin', 1)",
+        ("owner@example.com", "Owner", "x"),
+    )
+    await db_connection.commit()
+    user_id = cursor.lastrowid
+    _patch_settings(monkeypatch, MCP_ALLOW_WRITE=True, MCP_OWNER_USER_ID=str(user_id))
 
     with pytest.raises(RuntimeError, match="Connect Gmail"):
+        await mcp_server.run_ingestion(window="default")
+
+
+@pytest.mark.asyncio
+async def test_run_ingestion_rejects_inactive_user(db_connection, monkeypatch, tmp_path):
+    """A disabled user cannot trigger ingestion, even if their MCP_OWNER_USER_ID is set."""
+    monkeypatch.setattr(authorize, "USER_TOKEN_ROOT", tmp_path / "gmail-users")
+    cursor = await db_connection.execute(
+        "INSERT INTO users (email, display_name, password_hash, role, is_active) "
+        "VALUES (?, ?, ?, 'admin', 0)",
+        ("disabled@example.com", "Disabled", "x"),
+    )
+    await db_connection.commit()
+    user_id = cursor.lastrowid
+    _patch_settings(monkeypatch, MCP_ALLOW_WRITE=True, MCP_OWNER_USER_ID=str(user_id))
+
+    with pytest.raises(PermissionError, match="not active"):
         await mcp_server.run_ingestion(window="default")
 
 

@@ -69,6 +69,11 @@ async def create_user(request: Request, db: aiosqlite.Connection = Depends(get_d
     if request.headers.get("HX-Request") == "true":
         users = await queries.list_users(db)
         return templates.TemplateResponse(request, "partials/users_table.html", {"users": users})
+
+    # New admin-created user changes whether the table is non-empty, so
+    # drop the auth-middleware cache to keep the next request honest.
+    from app.web.main import invalidate_user_count_cache
+    invalidate_user_count_cache()
     return user
 
 

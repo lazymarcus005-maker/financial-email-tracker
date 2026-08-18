@@ -19,6 +19,12 @@ SCHEDULE:
   - "22:00"  # Evening (Daily summary)
 
 TIMEZONE: "Asia/Bangkok"
+# scheduler backend: "background" (BackgroundScheduler, runs jobs in a thread;
+# safe for the standalone `python -m app.ingestion.scheduler` entrypoint) or
+# "asyncio" (AsyncIOScheduler, runs jobs on the FastAPI event loop - use this
+# when the web app and scheduler share a process to avoid creating a new
+# event loop per cron tick via `asyncio.run`).
+SCHEDULER_BACKEND: "background"
 
 # LINE
 LINE_CHANNEL_ACCESS_TOKEN: "{{ env.LINE_CHANNEL_ACCESS_TOKEN }}"

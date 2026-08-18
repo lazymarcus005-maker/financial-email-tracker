@@ -132,6 +132,19 @@ class _FakeDB:
     async def close(self):
         pass
 
+    async def execute(self, *_args, **_kwargs):
+        # `_send_daily_summary_async` now (always) calls
+        # `get_default_owner_user_id(db)`, which only needs `db.execute` to
+        # return a cursor. Return a stub cursor that yields no rows.
+        class _StubCursor:
+            async def fetchone(self_inner):
+                return None
+
+            async def close(self_inner):
+                pass
+
+        return _StubCursor()
+
 
 def test_send_daily_summary_job_sends_via_line(monkeypatch, caplog):
     sent_calls = []
@@ -139,7 +152,10 @@ def test_send_daily_summary_job_sends_via_line(monkeypatch, caplog):
     async def fake_get_connection():
         return _FakeDB()
 
-    async def fake_get_daily_summary_data(db):
+    async def fake_get_default_owner_user_id(db):
+        return None
+
+    async def fake_get_daily_summary_data(db, **_kwargs):
         return {
             "date": "2026-07-27",
             "income_total": 100.0,
@@ -155,6 +171,7 @@ def test_send_daily_summary_job_sends_via_line(monkeypatch, caplog):
         return True
 
     monkeypatch.setattr(scheduler, "get_connection", fake_get_connection)
+    monkeypatch.setattr(scheduler, "get_default_owner_user_id", fake_get_default_owner_user_id)
     monkeypatch.setattr(scheduler, "get_daily_summary_data", fake_get_daily_summary_data)
     monkeypatch.setattr(scheduler, "send_message", fake_send_message)
 
@@ -182,7 +199,10 @@ def test_send_daily_summary_job_logs_error_when_send_fails(monkeypatch, caplog):
     async def fake_get_connection():
         return _FakeDB()
 
-    async def fake_get_daily_summary_data(db):
+    async def fake_get_default_owner_user_id(db):
+        return None
+
+    async def fake_get_daily_summary_data(db, **_kwargs):
         return {
             "date": "2026-07-27",
             "income_total": 0.0,
@@ -197,6 +217,7 @@ def test_send_daily_summary_job_logs_error_when_send_fails(monkeypatch, caplog):
         return False
 
     monkeypatch.setattr(scheduler, "get_connection", fake_get_connection)
+    monkeypatch.setattr(scheduler, "get_default_owner_user_id", fake_get_default_owner_user_id)
     monkeypatch.setattr(scheduler, "get_daily_summary_data", fake_get_daily_summary_data)
     monkeypatch.setattr(scheduler, "send_message", fake_send_message)
 

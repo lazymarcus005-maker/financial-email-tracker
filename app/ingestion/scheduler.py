@@ -1,10 +1,12 @@
 """Cron scheduler - ingests new emails on a schedule and sends the daily LINE summary."""
 
 import asyncio
+import inspect
 import logging
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
@@ -18,6 +20,19 @@ from app.storage.database import get_connection
 from app.storage.queries import get_daily_summary_data, get_default_owner_user_id, list_users
 
 logger = logging.getLogger(__name__)
+
+
+def _run_async_from_thread(coro):
+    """Drive a coroutine to completion from a non-async context (cron worker thread).
+
+    A fresh `asyncio.run()` is fine here because `BackgroundScheduler` invokes
+    its job from a dedicated worker thread, not the FastAPI event loop - so
+    there is no running loop to clash with. The previous code also used
+    `asyncio.run`, so behaviour is unchanged for the default backend; the
+    new helper exists so the contract is in one place and `asyncio.run` is
+    easy to grep for.
+    """
+    return asyncio.run(coro)
 
 
 def _log_event(event: str, **fields) -> None:
@@ -97,10 +112,29 @@ async def _run_ingestion_for_connected_users(settings: Settings) -> dict:
 
 
 def run_ingestion_job(settings: Settings) -> dict | None:
-    """Run one ingestion pass. Synchronous entry point suitable for APScheduler."""
+    """Run one ingestion pass. Synchronous entry point suitable for APScheduler.
+
+    Called by `BackgroundScheduler` from a worker thread. `AsyncIOScheduler`
+    should call the underlying async function directly (see
+    `run_ingestion_async`) instead, so it never has to spin up its own
+    event loop via `asyncio.run` per tick.
+    """
     _log_event("cron_start", job="ingestion")
     try:
-        summary = asyncio.run(_run_ingestion_for_connected_users(settings))
+        summary = _run_async_from_thread(_run_ingestion_for_connected_users(settings))
+        _log_event("cron_finish", job="ingestion", **summary)
+        return summary
+    except Exception as e:
+        logger.exception("Ingestion cron job failed")
+        _log_event("ingestion_error", job="ingestion", error=str(e))
+        return None
+
+
+async def run_ingestion_async(settings: Settings) -> dict | None:
+    """Async version of `run_ingestion_job` - register this on an `AsyncIOScheduler`."""
+    _log_event("cron_start", job="ingestion")
+    try:
+        summary = await _run_ingestion_for_connected_users(settings)
         _log_event("cron_finish", job="ingestion", **summary)
         return summary
     except Exception as e:
@@ -110,9 +144,15 @@ def run_ingestion_job(settings: Settings) -> dict | None:
 
 
 async def _send_daily_summary_async(settings: Settings) -> bool:
+    """Build the daily LINE summary for the default owner and send it.
+
+    Both aiosqlite and the Postgres backend expose `.execute`, so the previous
+    `hasattr(db, "execute")` branch was always-true dead code - it has been
+    collapsed to a single path that always resolves the default owner.
+    """
     db = await get_connection()
     try:
-        owner_user_id = await get_default_owner_user_id(db) if hasattr(db, "execute") else None
+        owner_user_id = await get_default_owner_user_id(db)
         if owner_user_id is None:
             data = await get_daily_summary_data(db)
         else:
@@ -125,10 +165,28 @@ async def _send_daily_summary_async(settings: Settings) -> bool:
 
 
 def send_daily_summary_job(settings: Settings) -> None:
-    """Aggregate today's transactions and push the LINE summary. Sync entry point for APScheduler."""
+    """Aggregate today's transactions and push the LINE summary. Sync entry point for APScheduler.
+
+    See `run_ingestion_job` for why this wraps `_send_daily_summary_async`
+    via `_run_async_from_thread` instead of calling `asyncio.run` directly.
+    """
     _log_event("cron_start", job="daily_summary")
     try:
-        sent = asyncio.run(_send_daily_summary_async(settings))
+        sent = _run_async_from_thread(_send_daily_summary_async(settings))
+        if sent:
+            _log_event("daily_summary_sent")
+        else:
+            _log_event("ingestion_error", job="daily_summary", error="LINE send_message returned False")
+    except Exception as e:
+        logger.exception("Daily summary job failed")
+        _log_event("ingestion_error", job="daily_summary", error=str(e))
+
+
+async def send_daily_summary_async(settings: Settings) -> None:
+    """Async version of `send_daily_summary_job` - for `AsyncIOScheduler`."""
+    _log_event("cron_start", job="daily_summary")
+    try:
+        sent = await _send_daily_summary_async(settings)
         if sent:
             _log_event("daily_summary_sent")
         else:
@@ -144,19 +202,40 @@ def evening_job(settings: Settings) -> None:
     send_daily_summary_job(settings)
 
 
-def build_scheduler(settings: Settings | None = None) -> BackgroundScheduler:
+async def evening_job_async(settings: Settings) -> None:
+    """Async version of `evening_job` - for `AsyncIOScheduler`."""
+    await run_ingestion_async(settings)
+    await send_daily_summary_async(settings)
+
+
+def build_scheduler(settings: Settings | None = None):
     """Build (but do not start) the cron scheduler from `SCHEDULE`/`TIMEZONE` config.
 
     The last time in `SCHEDULE` also triggers the daily LINE summary after ingesting.
+
+    Returns either a `BackgroundScheduler` (default, jobs run in a worker
+    thread - works for the standalone `python -m app.ingestion.scheduler`
+    entrypoint and the FastAPI lifespan) or an `AsyncIOScheduler` (when
+    `settings.SCHEDULER_BACKEND == "asyncio"` - use this when you want the
+    cron jobs to share the FastAPI event loop instead of spinning up a new
+    one per tick via `asyncio.run`).
     """
     settings = settings or get_settings()
-    scheduler = BackgroundScheduler(timezone=settings.TIMEZONE)
+
+    if settings.SCHEDULER_BACKEND == "asyncio":
+        scheduler = AsyncIOScheduler(timezone=settings.TIMEZONE)
+        summary_job = evening_job_async
+        regular_job = run_ingestion_async
+    else:
+        scheduler = BackgroundScheduler(timezone=settings.TIMEZONE)
+        summary_job = evening_job
+        regular_job = run_ingestion_job
 
     summary_slot = settings.SCHEDULE[-1] if settings.SCHEDULE else None
 
     for time_str in settings.SCHEDULE:
         hour, minute = (int(part) for part in time_str.split(":"))
-        job = evening_job if time_str == summary_slot else run_ingestion_job
+        job = summary_job if time_str == summary_slot else regular_job
         scheduler.add_job(
             job,
             CronTrigger(hour=hour, minute=minute, timezone=settings.TIMEZONE),
@@ -164,15 +243,15 @@ def build_scheduler(settings: Settings | None = None) -> BackgroundScheduler:
             id=f"cron-{time_str}",
             replace_existing=True,
         )
-        logger.info(f"Scheduled {job.__name__} at {time_str} {settings.TIMEZONE}")
+        logger.info(f"Scheduled {job.__name__} at {time_str} {settings.TIMEZONE} ({settings.SCHEDULER_BACKEND})")
 
     return scheduler
 
 
-def start_scheduler(settings: Settings | None = None) -> BackgroundScheduler:
+def start_scheduler(settings: Settings | None = None):
     scheduler = build_scheduler(settings)
     scheduler.start()
-    logger.info("Scheduler started")
+    logger.info("Scheduler started (%s)", settings.SCHEDULER_BACKEND if settings else "background")
     return scheduler
 
 

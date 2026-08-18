@@ -44,6 +44,7 @@ class Settings:
 
     SCHEDULE: list = field(default_factory=list)
     TIMEZONE: str = "Asia/Bangkok"
+    SCHEDULER_BACKEND: str = "background"  # "background" (default) | "asyncio"
 
     LINE_CHANNEL_ACCESS_TOKEN: str | None = None
     LINE_USER_ID: str | None = None

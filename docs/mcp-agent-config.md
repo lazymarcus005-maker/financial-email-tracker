@@ -33,7 +33,7 @@ Set these in `.env` (or as real environment variables - they override
 | `MCP_EXPOSE_RAW_EMAIL` | `false` | When `true`, transaction results include a `raw_fields` object (parsed structured fields, not the raw email body) with account/reference/card/email/phone-shaped values masked to their last 4 characters. When `false` (default), `raw_fields` is omitted entirely. |
 | `MCP_API_TOKEN` | unset | Reserved for a future remote/HTTP MCP transport (Phase 3). Unused by the stdio server. |
 
-`DATABASE_PATH`, `GMAIL_CREDENTIALS_PATH`, `GMAIL_QUERY`, `LINE_CHANNEL_ACCESS_TOKEN`,
+`DATABASE_PATH`, `GMAIL_QUERY`, `LINE_CHANNEL_ACCESS_TOKEN`,
 and `LINE_USER_ID` are shared with the web app - the MCP server reads the same
 `config.yaml`/env via `app.config.get_settings()`.
 

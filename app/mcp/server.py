@@ -16,6 +16,7 @@ import logging
 import re
 import secrets
 import time
+from contextlib import asynccontextmanager
 from typing import Any
 
 from mcp.server.auth.provider import AccessToken
@@ -303,6 +304,22 @@ async def get_daily_summary(day: str | None = None) -> dict[str, Any]:
 # ---- Phase 2: Safe write tools ----------------------------------------------
 
 
+@asynccontextmanager
+async def _verified_active_owner(owner_user_id: int):
+    """Open a connection, yield True iff the user exists and is_active=1, close it.
+
+    Phase 2 write tools use this to enforce the same active-user guard the
+    web auth_middleware applies - so a disabled user can never be written
+    to via MCP, even if their `MCP_OWNER_USER_ID` is still configured.
+    """
+    db = await get_connection()
+    try:
+        user = await queries.get_user(db, owner_user_id)
+        yield bool(user and user.get("is_active"))
+    finally:
+        await db.close()
+
+
 @mcp.tool()
 async def update_transaction_category(transaction_id: int, category: str) -> dict[str, Any]:
     """Set a transaction's category and remember it for that counterparty. Requires MCP_ALLOW_WRITE=true."""
@@ -400,13 +417,34 @@ async def run_ingestion(window: str = "default") -> dict[str, Any]:
     if window not in INGESTION_WINDOWS:
         raise ValueError(f"window must be one of {sorted(INGESTION_WINDOWS)}")
 
-    token_path = user_token_path(owner_user_id)
-    if not token_exists(token_path):
-        raise RuntimeError(f"Connect Gmail for user {owner_user_id} before running ingestion")
+    # Verify the owner is still active before doing any work - matches what
+    # the web auth_middleware enforces. Without this an admin could disable
+    # a user, but the local MCP process would still ingest into their scope.
+    async with _verified_active_owner(owner_user_id) as active:
+        if not active:
+            raise PermissionError(f"User {owner_user_id} is not active; cannot run ingestion")
+
+        token_path = user_token_path(owner_user_id)
+        if not token_exists(token_path):
+            raise RuntimeError(f"Connect Gmail for user {owner_user_id} before running ingestion")
+
+        async def _run():
+            query = _query_for_window(settings.GMAIL_QUERY, window)
+            # Per-user token file already embeds client_id/client_secret/refresh_token,
+            # so no separate credentials_path is needed (see app/gmail/authorize.py).
+            reader = GmailReader(GmailClient(token_path=token_path))
+            try:
+                return await _run_ingestion(query, reader=reader, owner_user_id=owner_user_id)
+            except IngestionAlreadyRunningError as e:
+                return {"error": "already_running", "detail": str(e)}
+
+        return await _call_tool("run_ingestion", owner_user_id, _run, window=window)
 
     async def _run():
         query = _query_for_window(settings.GMAIL_QUERY, window)
-        reader = GmailReader(GmailClient(credentials_path=settings.GMAIL_CREDENTIALS_PATH, token_path=token_path))
+        # Per-user token file already embeds client_id/client_secret/refresh_token,
+        # so no separate credentials_path is needed (see app/gmail/authorize.py).
+        reader = GmailReader(GmailClient(token_path=token_path))
         try:
             return await _run_ingestion(query, reader=reader, owner_user_id=owner_user_id)
         except IngestionAlreadyRunningError as e:

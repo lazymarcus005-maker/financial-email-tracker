@@ -123,14 +123,23 @@ async def load_user_from_request(request: Request) -> dict | None:
 
 
 def is_public_path(path: str) -> bool:
-    return (
+    """Paths that bypass session auth and the setup redirect.
+
+    `/mcp` and `/sse` are only public when the MCP server is actually mounted
+    (i.e. `MCP_ENABLED=true`) - otherwise they are not real routes and the
+    whitelist would silently bypass auth for non-existent URLs while lying in
+    the config (MCP_ENABLED=false but the URL is treated as public).
+    """
+    if (
         path == "/health"
         or path == "/login"
         or path == "/setup"
         or path.startswith("/static/")
-        or path.startswith("/mcp")
-        or path.startswith("/sse")
-    )
+    ):
+        return True
+    if path.startswith("/mcp") or path.startswith("/sse"):
+        return get_settings().MCP_ENABLED
+    return False
 
 
 def unauthenticated_response(request: Request) -> Response:
